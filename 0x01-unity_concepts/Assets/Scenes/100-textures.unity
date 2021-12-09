@@ -138,6 +138,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Textured Ball
       objectReference: {fileID: 0}
+    - target: {fileID: 3571131947283325635, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
+      propertyPath: m_TagString
+      value: Obstacles
+      objectReference: {fileID: 0}
     - target: {fileID: 3571131947283325647, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
       propertyPath: m_RootOrder
       value: 8
@@ -292,6 +296,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: White Ball
       objectReference: {fileID: 0}
+    - target: {fileID: 3571131947283325635, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
+      propertyPath: m_TagString
+      value: Obstacles
+      objectReference: {fileID: 0}
     - target: {fileID: 3571131947283325647, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
       propertyPath: m_RootOrder
       value: 6
@@ -364,6 +372,10 @@ PrefabInstance:
     - target: {fileID: 3571131947283325635, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
       propertyPath: m_Name
       value: Blue Ball
+      objectReference: {fileID: 0}
+    - target: {fileID: 3571131947283325635, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
+      propertyPath: m_TagString
+      value: Obstacles
       objectReference: {fileID: 0}
     - target: {fileID: 3571131947283325647, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
       propertyPath: m_RootOrder
@@ -617,6 +629,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Green Ball
       objectReference: {fileID: 0}
+    - target: {fileID: 3571131947283325635, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
+      propertyPath: m_TagString
+      value: Obstacles
+      objectReference: {fileID: 0}
     - target: {fileID: 3571131947283325647, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
       propertyPath: m_RootOrder
       value: 5
@@ -690,6 +706,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Red Ball
       objectReference: {fileID: 0}
+    - target: {fileID: 3571131947283325635, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
+      propertyPath: m_TagString
+      value: Obstacles
+      objectReference: {fileID: 0}
     - target: {fileID: 3571131947283325647, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
       propertyPath: m_RootOrder
       value: 3
@@ -762,6 +782,10 @@ PrefabInstance:
     - target: {fileID: 3571131947283325635, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
       propertyPath: m_Name
       value: Black Ball
+      objectReference: {fileID: 0}
+    - target: {fileID: 3571131947283325635, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
+      propertyPath: m_TagString
+      value: Obstacles
       objectReference: {fileID: 0}
     - target: {fileID: 3571131947283325647, guid: 39024629e7992ab4d9cd0a8b0f461045, type: 3}
       propertyPath: m_RootOrder
