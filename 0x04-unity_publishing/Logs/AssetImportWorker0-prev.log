@@ -11,19 +11,19 @@ C:\Program Files\Unity\Hub\Editor\2021.1.23f1\Editor\Unity.exe
 -name
 AssetImportWorker0
 -projectPath
-C:/Users/Sebastian/Documents/GitHub/0x03-unity-ui
+C:/Users/Sebastian/Documents/GitHub/0x04-unity_publishing
 -logFile
 Logs/AssetImportWorker0.log
 -srvPort
-54767
-Successfully changed project path to: C:/Users/Sebastian/Documents/GitHub/0x03-unity-ui
-C:/Users/Sebastian/Documents/GitHub/0x03-unity-ui
+59227
+Successfully changed project path to: C:/Users/Sebastian/Documents/GitHub/0x04-unity_publishing
+C:/Users/Sebastian/Documents/GitHub/0x04-unity_publishing
 Using Asset Import Pipeline V2.
-Refreshing native plugins compatible for Editor in 2725.58 ms, found 2 plugins.
+Refreshing native plugins compatible for Editor in 80.48 ms, found 2 plugins.
 Preloading 0 native plugins for Editor in 0.00 ms.
 Initialize engine version: 2021.1.23f1 (b50729e604a9)
 [Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/2021.1.23f1/Editor/Data/Resources/UnitySubsystems
-[Subsystems] Discovering subsystems at path C:/Users/Sebastian/Documents/GitHub/0x03-unity-ui/Assets
+[Subsystems] Discovering subsystems at path C:/Users/Sebastian/Documents/GitHub/0x04-unity_publishing/Assets
 GfxDevice: creating device client; threaded=0; jobified=0
 Direct3D:
     Version:  Direct3D 11.0 [level 11.1]
@@ -35,5 +35,5 @@ Initialize mono
 Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/2021.1.23f1/Editor/Data/Managed'
 Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/2021.1.23f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit'
 Mono config path = 'C:/Program Files/Unity/Hub/Editor/2021.1.23f1/Editor/Data/MonoBleedingEdge/etc'
-Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56564
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56976
 Begin MonoManager ReloadAssembly
