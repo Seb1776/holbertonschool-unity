@@ -18967,7 +18967,7 @@ GameObject:
   m_Component:
   - component: {fileID: 543450653427697833}
   m_Layer: 0
-  m_Name: Flag
+  m_Name: WinFlag
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -22085,7 +22085,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2238821111574309980, guid: dbca7a2d8e8907540867d8eb1ea9a521, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1.26
+      value: 1.25
       objectReference: {fileID: 0}
     - target: {fileID: 2238821111574309980, guid: dbca7a2d8e8907540867d8eb1ea9a521, type: 3}
       propertyPath: m_LocalPosition.z
