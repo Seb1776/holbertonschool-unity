@@ -38,9 +38,13 @@ public class Timer : MonoBehaviour
     public void LoadBestTime()
     {
         TimesData td = SaveSystem.LoadTimes();
-        Debug.Log(td.newTime);
 
-        bestTime = td.newTime;
+        if (td != null)
+        {
+            Debug.Log(td.newTime);
+
+            bestTime = td.newTime;
+        }
     }
 
     public void TriggerWinGame()
