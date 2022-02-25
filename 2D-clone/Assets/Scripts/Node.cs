@@ -11,8 +11,14 @@ public class Node : MonoBehaviour
     public PelletType pelletType;
     public GameObject pelletPrefab;
     public Transform pelletsParent;
+    public bool manualNeighbours;
     public bool eaten;
+    public int scoreValue;
     public bool invisiblePellet;
+    public bool detectableForOtherPellets = true;
+    public bool setAsSuperPellet;
+    public bool isHouseEntrance;
+    public bool isHouse;
     public List<DirectionFromDistance> directionFromDistances = new List<DirectionFromDistance>();
     public List<Vector2> newPelletsSpawns = new List<Vector2>();
     [Header ("Portal Pellet")]
@@ -35,25 +41,33 @@ public class Node : MonoBehaviour
     }
 
     public void GetNeighbours()
-    {
-        Vector2[] directs = new Vector2[4];
-
-        directs[0] = Vector2.up;
-        directs[1] = Vector2.down;
-        directs[2] = Vector2.right;
-        directs[3] = Vector2.left;
-
-        for (int i = 0; i < directs.Length; i++)
+    {   
+        if (!manualNeighbours)
         {
-            RaycastHit2D hit = Physics2D.Raycast(transform.position, directs[i], raycastDetectLength, whatIsNode);
+            Vector2[] directs = new Vector2[4];
 
-            if (hit.collider != null && hit.collider.GetComponent<Node>() != null)
+            directs[0] = Vector2.up;
+            directs[1] = Vector2.down;
+            directs[2] = Vector2.right;
+            directs[3] = Vector2.left;
+
+            for (int i = 0; i < directs.Length; i++)
             {
-                neighbours.Add(hit.collider.GetComponent<Node>());
+                RaycastHit2D hit = Physics2D.Raycast(transform.position, directs[i], raycastDetectLength, whatIsNode);
+
+                if (hit.collider != null && hit.collider.GetComponent<Node>() != null && hit.collider.GetComponent<Node>().detectableForOtherPellets)
+                {
+                    neighbours.Add(hit.collider.GetComponent<Node>());
+                }
             }
+
+            GetValidDirections();
         }
 
-        GetValidDirections();
+        else if (manualNeighbours && neighbours.Count > 0)
+        {
+            GetValidDirections();
+        }
     }
 
     void GetValidDirections()
@@ -63,7 +77,7 @@ public class Node : MonoBehaviour
         for (int i = 0; i < neighbours.Count; i++)
         {
             Node neighbor = neighbours[i];
-            Vector2 tempVector = neighbor.transform.localPosition - transform.localPosition;
+            Vector2 tempVector = neighbor.transform.position - transform.position;
             validDirections[i] = ConvertDirectionFromVector(tempVector.normalized);
         }
 
@@ -103,9 +117,17 @@ public class Node : MonoBehaviour
                 {
                     GameObject _node = Instantiate(pelletPrefab, newPelletsSpawns[i], Quaternion.identity, pelletsParent);
                     _node.GetComponent<Node>().pelletType = Node.PelletType.NormalPellet;
+                    _node.gameObject.name += " " + i.ToString();
                     manager.allNodes.Add(_node.GetComponent<Node>());
+                    manager.totalPellets++;
                 }
             }
+        }
+
+        if (setAsSuperPellet)
+        {
+            scoreValue = 50;
+            pelletType = PelletType.SuperPellet;
         }
     }
 
@@ -143,6 +165,7 @@ public class Node : MonoBehaviour
         else if (_dir.x == 0f && _dir.y == -1f)
             return ValidDirections.Down;
         
+        Debug.Log("why " + gameObject.name + " x: " + _dir.x + ", y: " + _dir.y);
         return ValidDirections.Nil;
     }
 

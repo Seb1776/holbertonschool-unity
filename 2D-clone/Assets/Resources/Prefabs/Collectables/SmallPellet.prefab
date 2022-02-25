@@ -50,8 +50,14 @@ MonoBehaviour:
   pelletType: 1
   pelletPrefab: {fileID: 0}
   pelletsParent: {fileID: 0}
+  manualNeighbours: 0
   eaten: 0
+  scoreValue: 10
   invisiblePellet: 0
+  detectableForOtherPellets: 1
+  setAsSuperPellet: 0
+  isHouseEntrance: 0
+  isHouse: 0
   directionFromDistances: []
   newPelletsSpawns: []
   isPortal: 0

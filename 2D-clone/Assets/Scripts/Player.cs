@@ -8,10 +8,20 @@ public class Player : MonoBehaviour
 {
     [Header("Player")]
     public float moveSpeed;
+    public bool canMove = true;
+    public Node.ValidDirections startingDirection;
+    public Vector2 orientation;
+    public Node startingNode;
+    public int pacManLives;
+    [Header("SFX")]
+    public AudioClip[] munchSFX;
+    public AudioClip superPelletEat;
     [Header ("PS4 LightBar Animation")]
     public bool overrideAnimSpeed;
     public bool useController;
 
+    AudioSource source;
+    bool _munch;
     bool controllerAvailable;
     Node currentNode, targetNode, previousNode;
     SpriteRenderer pacmanSprite;
@@ -25,12 +35,12 @@ public class Player : MonoBehaviour
         animator = GetComponent<Animator>();
         manager = GameObject.FindGameObjectWithTag("GameManager").GetComponent<GameManager>();
         pacmanSprite = transform.GetChild(0).GetComponent<SpriteRenderer>();
+        source = GetComponent<AudioSource>();
         controllerAvailable = Gamepad.all.Count > 0;
 
         inputActions = new InputMaster();
         inputActions.Enable();
         inputActions.Player.Movement.performed += CheckJoystickInput;
-        inputActions.Player.SuperPellet.performed += manager.TriggerSuperPellet;
     }
 
     void Start()
@@ -38,9 +48,12 @@ public class Player : MonoBehaviour
         Node node = GetNodeAtPosition(transform.localPosition);
 
         if (node != null)
-            currentNode = node;
+        {
+            currentNode = startingNode = node;
+        }
         
-        playerInputVector = Vector2.left;
+        playerInputVector = currentNode.ConvertDirectionFromEnum(startingDirection);
+        orientation = currentNode.ConvertDirectionFromEnum(startingDirection);
         ChangePosition(playerInputVector);
 
         if (!controllerAvailable && useController)
@@ -48,18 +61,21 @@ public class Player : MonoBehaviour
     }
 
     void Update()
-    {
-        HandlePS4LightBar();
-        Move();
-        UpdateRotation();
-        CheckInput();
-        HandleAnimations();
-        EatPellet();
+    {   
+        if (canMove)
+        {
+            HandlePS4LightBar();
+            Move();
+            UpdateRotation();
+            CheckInput();
+            HandleAnimations();
+            EatPellet();
+        }
     }
 
     Node GetNodeAtPosition(Vector2 pos)
     {
-        GameObject tile = GameObject.FindGameObjectWithTag("GameManager").GetComponent<GameManager>().boardObjects[(int)pos.x, (int)pos.y];
+        GameObject tile = manager.boardObjects[(int)pos.x, (int)pos.y];
 
         if (tile != null)
         {
@@ -196,6 +212,8 @@ public class Player : MonoBehaviour
             pacmanSprite.flipX = false;
             transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
         }
+
+        orientation = playerInputVector;
     }
 
     void CheckInput()
@@ -274,11 +292,22 @@ public class Player : MonoBehaviour
             {
                 pellet.GetComponent<SpriteRenderer>().enabled = false;
                 pellet.GetComponent<Node>().eaten = true;
+                manager.score += pellet.GetComponent<Node>().scoreValue;
+                manager.eatenPellets++;
+                manager.CheckForSirenChange();
+                source.PlayOneShot(_munch ? munchSFX[1] : munchSFX[0]);
+                _munch = !_munch;
             }
 
             else if (!pellet.GetComponent<Node>().eaten && !pellet.GetComponent<Node>().invisiblePellet && pellet.GetComponent<Node>().pelletType == Node.PelletType.SuperPellet)
             {
                 //Super Pellet
+                pellet.GetComponent<SpriteRenderer>().enabled = false;
+                pellet.GetComponent<Node>().eaten = true;
+                manager.score += pellet.GetComponent<Node>().scoreValue;
+                manager.eatenPellets++;
+                manager.CheckForSirenChange();
+                manager.TriggerSuperPellet();
             }
         }
     }
@@ -296,6 +325,16 @@ public class Player : MonoBehaviour
         }
 
         return null;
+    }
+
+    public void Restart()
+    {
+        canMove = true;
+        animator.SetTrigger("reappear");
+        transform.position = startingNode.transform.position;
+        currentNode = startingNode;
+        playerInputVector = orientation = nextDirection = currentNode.ConvertDirectionFromEnum(startingDirection);
+        ChangePosition(playerInputVector);
     }
 
     void MovementLight(float incrementFactor)
