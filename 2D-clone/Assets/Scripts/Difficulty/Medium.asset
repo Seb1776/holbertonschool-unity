@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: Medium
   m_EditorClassIdentifier: 
   difficultyName: Medium
+  difficultyMusicMode: 0
+  customMusic: {fileID: 0}
   ghostConfigs:
   - ghostName: blinky
     timeToRelease: 0
@@ -36,3 +38,4 @@ MonoBehaviour:
   superPelletMaxDuration: 7.5
   pacManSpeed: 7
   pacManStartingLives: 4
+  fruitLifeTime: 15

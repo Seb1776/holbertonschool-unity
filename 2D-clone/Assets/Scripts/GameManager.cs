@@ -26,23 +26,32 @@ public class GameManager : MonoBehaviour
     public MusicMode musicMode;
     public AudioClip customMusic;
     public DifficultySetting difficulty;
+    public List<Fruit> roundFruits = new List<Fruit>();
+    public int pelletsToAppearFruit;
+    public int pelletFruitCounter;
+    public int currentActIndex;
+    public Transform fruitSpawn;
+    public float act1T, act2T, act3T;
     [Header ("Audio")]
     public AudioClip[] sirens;
     public AudioClip superPelletMusic;
     public AudioClip consumedGhostMusic;
     public AudioClip pacManDeath;
     public AudioClip introMusic;
+    public AudioClip winMusic;
     public AudioSource musicSource;
     public int consumedGhosts;
     public int ghostToConsume;
+    public bool ateAllFruits;
     [Header ("UI")]
+    public Animator[] fruits;
     public TMP_Text currentScore;
     public TMP_Text hiScore;
     public TMP_Text currentTime;
     public TMP_Text bestTime;
     public TMP_Text currentLives;
     public TMP_Text restartReadyText, restartPlayerText, difficultyName,
-    currentPelletsText, totalPelletsText;
+    currentPelletsText, totalPelletsText, act1TText, act2TText, act3TText;
 
     [Header ("PS4 Animation")]
     public Player player;
@@ -50,6 +59,9 @@ public class GameManager : MonoBehaviour
     public float currentAnimSpeed;
     public float superPelletTime;
 
+    public GameObject createdFruit;
+    public int fruitIndex;
+    bool winAct;
     bool startDeath;
     bool inSuperPellet;
     int currentSirenIndex;
@@ -84,6 +96,7 @@ public class GameManager : MonoBehaviour
         for (int i = 0; i < pelletDivision.Length; i++)
             pelletDivision[i] = (totalPellets / 6f) * (i + 1);
         
+        LoadMaze();
         LoadDifficulty();
         
         StartCoroutine(StartCutscene(introMusic.length));
@@ -96,18 +109,67 @@ public class GameManager : MonoBehaviour
 
         HandleUI();
         
-        if (countTime) HandleTimer();
+        if (countTime) 
+            HandleTimer();
 
+        CheckForWinGame();
         PS4LightBarManager();
+
+        if (Keyboard.current.kKey.wasPressedThisFrame)
+            InstaWin();
+    }
+
+    void InstaWin()
+    {
+        for (int i = 0; i < allNodes.Count; i++)
+        {
+            if (!allNodes[i].eaten && !allNodes[i].invisiblePellet)
+            {
+                allNodes[i].GetComponent<SpriteRenderer>().enabled = false;
+                allNodes[i].eaten = true;
+            }
+        }
+
+        foreach (Animator a in fruits)
+            a.SetTrigger("collected");
+
+        winAct = true;
+
+        currentActIndex++;
+
+        if (currentActIndex >= mazeData.mazeActs.Length - 1)
+            StartCoroutine(WinWin());
+        else
+            StartCoroutine(ProcessWinActAnimation());
     }
 
     void HandleUI()
     {
         currentScore.text = score.ToString("D6");
         currentLives.text = pacMan.pacManLives.ToString();
-        currentPelletsText.text = eatenPellets.ToString("D3");
+        currentPelletsText.text = pelletFruitCounter.ToString("D3");
         currentTime.text = TimeSpan.FromSeconds(timeSpent).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(timeSpent).Seconds.ToString("D2") + ":" +
                         TimeSpan.FromSeconds(timeSpent).Milliseconds.ToString();
+    }
+
+    void LoadMaze()
+    {
+        if (mazeData != null)
+        {
+            roundFruits = mazeData.mazeActs[currentActIndex].fruitsToAppear;
+            pelletsToAppearFruit = mazeData.pelletsToAppearFruit;
+
+            for (int i = 0; i < fruits.Length; i++)
+            {
+                foreach (Transform c in fruits[i].transform)
+                {
+                    if (c.GetComponent<SpriteRenderer>() != null)
+                    {
+                        c.GetComponent<SpriteRenderer>().sprite = roundFruits[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+                    }
+                }
+            }
+        }
     }
 
     void LoadDifficulty()
@@ -120,6 +182,9 @@ public class GameManager : MonoBehaviour
             pacMan.pacManLives = difficulty.pacManStartingLives;
             customMusic = difficulty.customMusic;
             musicMode = difficulty.difficultyMusicMode;
+
+            foreach (Fruit f in roundFruits)
+                f.lifeTime = difficulty.fruitLifeTime;
 
             for (int i = 0; i < difficulty.ghostConfigs.Length; i++)
             {   
@@ -187,6 +252,21 @@ public class GameManager : MonoBehaviour
         timeSpent += Time.deltaTime;
     }
 
+    public void CheckToAppearFruit()
+    {
+        if (pelletFruitCounter >= pelletsToAppearFruit && !ateAllFruits)
+        {
+            if (createdFruit == null)
+            {
+                createdFruit = Instantiate(roundFruits[fruitIndex].gameObject, fruitSpawn.position, Quaternion.identity);
+                createdFruit.GetComponent<Fruit>().lifeTime = difficulty.fruitLifeTime;
+                createdFruit.GetComponent<Fruit>().DestroyFruit();
+            }
+
+            pelletFruitCounter = 0;
+        }   
+    }
+
     void SetGameBoard()
     {
         foreach (Node n in cornerNodes)
@@ -207,7 +287,7 @@ public class GameManager : MonoBehaviour
 
         foreach (Node o in pellets)
         {
-            if (o.GetComponent<Node>() != null /*&& o.gameObject.activeSelf*/)
+            if (o.GetComponent<Node>() != null)
             {
                 Vector2 pos = o.transform.position;
                 boardObjects[Mathf.Abs((int)pos.x), Mathf.Abs((int)pos.y)] = o.gameObject;
@@ -254,6 +334,7 @@ public class GameManager : MonoBehaviour
             inSuperPellet = false;
         }
 
+        pelletFruitCounter = 0;
         lastGhostScore = 200;
 
         if (musicMode != MusicMode.Custom) musicSource.clip = sirens[currentSirenIndex];
@@ -262,6 +343,37 @@ public class GameManager : MonoBehaviour
         musicSource.Play();
 
         startDeath = false;
+    }
+
+    public void NextAct()
+    {
+        RestartGame();
+
+        winAct = false;
+        countTime = true;
+        animator.ResetTrigger("pacwinend");
+        animator.ResetTrigger("pacwinstart");
+        animator.ResetTrigger("pacdeathend");
+        animator.ResetTrigger("pacdeathstart");
+
+        pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
+
+        roundFruits = mazeData.mazeActs[currentActIndex].fruitsToAppear;
+        pelletsToAppearFruit = mazeData.pelletsToAppearFruit;
+
+        for (int i = 0; i < fruits.Length; i++)
+        {
+            foreach (Transform c in fruits[i].transform)
+            {
+                if (c.GetComponent<SpriteRenderer>() != null)
+                {
+                    c.GetComponent<SpriteRenderer>().sprite = roundFruits[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+                }
+            }
+        }
+
+        foreach (Animator a in fruits)
+            a.SetTrigger("lock");
     }
 
     public void TriggerSuperPellet()
@@ -325,6 +437,145 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    void CheckForWinGame()
+    {
+        if (eatenPellets >= totalPellets && !winAct)
+        {
+            winAct = true;
+            countTime = false;
+
+            switch (currentActIndex)
+            {
+                case 0:
+                    act1T = timeSpent;
+
+                    act1TText.text = TimeSpan.FromSeconds(act1T).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(act1T).Seconds.ToString("D2") + ":" +
+                        TimeSpan.FromSeconds(act1T).Milliseconds.ToString();
+                break;
+
+                case 1:
+                    act2T = timeSpent;
+
+                    act2TText.text = TimeSpan.FromSeconds(act2T).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(act2T).Seconds.ToString("D2") + ":" +
+                        TimeSpan.FromSeconds(act2T).Milliseconds.ToString();
+                break;
+
+                case 2:
+                    act3T = timeSpent;
+
+                    act3TText.text = TimeSpan.FromSeconds(act3T).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(act3T).Seconds.ToString("D2") + ":" +
+                        TimeSpan.FromSeconds(act3T).Milliseconds.ToString();
+                break;
+            }
+
+            timeSpent = 0f;
+
+            currentActIndex++;
+
+            if (currentActIndex >= mazeData.mazeActs.Length - 1)
+                StartCoroutine(WinWin());
+
+            StartCoroutine(ProcessWinActAnimation());
+        }
+    }
+
+    IEnumerator ProcessWinActAnimation()
+    {
+        pacMan.canMove = blinky.canMove = inky.canMove = pinky.canMove = clyde.canMove = false;
+        pacMan.GetComponent<Animator>().SetBool("moving", false);
+        musicSource.Stop();
+        fruitIndex = 0;
+        ateAllFruits = false;
+        eatenPellets = 0;
+        lastGhostScore = 200;
+        currentSirenIndex = 0;
+        pelletFruitCounter = 0;
+        
+        if (createdFruit != null)
+            createdFruit.GetComponent<Fruit>().InstaDestroyFruit();
+
+        if (inSuperPellet)
+        {
+            superPelletTimer = 0f;
+            inSuperPellet = false;
+        }
+
+        yield return new WaitForSeconds(2f);
+
+        blinky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        inky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        pinky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        clyde.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
+        pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
+        animator.SetTrigger("pacwinstart");
+
+        musicSource.Stop();
+        musicSource.PlayOneShot(winMusic);
+
+        for (int i = 0; i < allNodes.Count; i++)
+        {
+            if (!allNodes[i].invisiblePellet && allNodes[i].eaten)
+            {
+                allNodes[i].GetComponent<SpriteRenderer>().enabled = true;
+                allNodes[i].GetComponent<Node>().eaten = false;
+                yield return new WaitForSeconds(0.009f);
+            }
+        }
+
+        for (int i = 0; i < allNodes.Count; i++)
+            if (!allNodes[i].invisiblePellet)
+                allNodes[i].GetComponent<SpriteRenderer>().enabled = false;
+        
+        yield return new WaitForSeconds(0.09f);
+
+        for (int i = 0; i < allNodes.Count; i++)
+            if (!allNodes[i].invisiblePellet)
+                allNodes[i].GetComponent<SpriteRenderer>().enabled = true;
+
+        yield return new WaitForSeconds(0.09f);
+
+        for (int i = 0; i < allNodes.Count; i++)
+            if (!allNodes[i].invisiblePellet)
+                allNodes[i].GetComponent<SpriteRenderer>().enabled = false;
+        
+        yield return new WaitForSeconds(0.09f);
+
+        for (int i = 0; i < allNodes.Count; i++)
+            if (!allNodes[i].invisiblePellet)
+                allNodes[i].GetComponent<SpriteRenderer>().enabled = true;
+
+        yield return new WaitForSeconds(0.09f);
+
+        for (int i = 0; i < allNodes.Count; i++)
+            if (!allNodes[i].invisiblePellet)
+                allNodes[i].GetComponent<SpriteRenderer>().enabled = false;
+        
+        yield return new WaitForSeconds(0.09f);
+
+        for (int i = 0; i < allNodes.Count; i++)
+            if (!allNodes[i].invisiblePellet)
+                allNodes[i].GetComponent<SpriteRenderer>().enabled = true;
+
+        yield return new WaitForSeconds(3.5f);
+
+        restartReadyText.gameObject.SetActive(true);
+        restartPlayerText.gameObject.SetActive(true);
+
+        yield return new WaitForSeconds(2f);
+
+        restartReadyText.gameObject.SetActive(false);
+        restartPlayerText.gameObject.SetActive(false);
+
+        animator.SetTrigger("pacwinend");
+
+        NextAct();
+    }
+
+    IEnumerator WinWin()
+    {
+        yield return null;
+    }
+
     public void StartDeath()
     {
         if (!startDeath) startDeath = true;
@@ -340,6 +591,13 @@ public class GameManager : MonoBehaviour
         pacMan.canMove = blinky.canMove = inky.canMove = pinky.canMove = clyde.canMove = false;
         pacMan.GetComponent<Animator>().SetBool("moving", false);
         musicSource.Stop();
+
+        if (inSuperPellet)
+        {
+            superPelletTimer = 0f;
+            inSuperPellet = false;
+        }
+
         StartCoroutine(ProcessAfterDeath(2f));
     }
 
@@ -356,16 +614,22 @@ public class GameManager : MonoBehaviour
 
     IEnumerator ProcessDeathAnimation(float delay)
     {
+        if (createdFruit != null)
+            createdFruit.GetComponent<Fruit>().InstaDestroyFruit();
+
         pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().flipX =
         pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().flipY = false;
 
         pacMan.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
 
         pacMan.GetComponent<Animator>().SetTrigger("death");
+        animator.SetTrigger("pacdeathstart");
 
         musicSource.PlayOneShot(pacManDeath);
         
         yield return new WaitForSeconds(delay);
+
+        countTime = false;
 
         if (pacMan.pacManLives > 0)
             StartCoroutine(ProcessRestart(2f));
@@ -402,9 +666,11 @@ public class GameManager : MonoBehaviour
 
         yield return new WaitForSeconds(delay);
 
+        countTime = true;
         restartReadyText.gameObject.SetActive(false);
         restartPlayerText.gameObject.SetActive(false);
 
+        animator.SetTrigger("pacdeathend");
         RestartGame();
     }
 
@@ -500,6 +766,14 @@ public class GameManager : MonoBehaviour
                 }
             }
         }
+    }
+
+    public IEnumerator ControllerRumble(float time)
+    {
+        Debug.Log("here");
+        ps4Gamepad.SetMotorSpeeds(0.25f, 0.25f);
+        yield return new WaitForSeconds(time);
+        ps4Gamepad.SetMotorSpeeds(0f, 0f);
     }
 
     public void ReloadGame()

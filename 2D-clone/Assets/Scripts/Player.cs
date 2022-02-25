@@ -70,6 +70,9 @@ public class Player : MonoBehaviour
             CheckInput();
             HandleAnimations();
             EatPellet();
+
+            if (manager.createdFruit != null)
+                CheckCollisions();
         }
     }
 
@@ -83,6 +86,18 @@ public class Player : MonoBehaviour
         }
 
         return null;
+    }
+
+    void CheckCollisions()
+    {
+        Rect playerRect = new Rect(transform.position, transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
+        Rect fruitRect = new Rect(manager.createdFruit.transform.position, manager.createdFruit.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 115f);
+
+        if (playerRect.Overlaps(fruitRect))
+        {
+            source.PlayOneShot(manager.createdFruit.GetComponent<Fruit>().collectedFruit);
+            manager.createdFruit.GetComponent<Fruit>().CollectedFruit();
+        }
     }
 
     void HandleAnimations()
@@ -294,7 +309,10 @@ public class Player : MonoBehaviour
                 pellet.GetComponent<Node>().eaten = true;
                 manager.score += pellet.GetComponent<Node>().scoreValue;
                 manager.eatenPellets++;
+                manager.pelletFruitCounter++;
+                manager.CheckToAppearFruit();
                 manager.CheckForSirenChange();
+                StartCoroutine(manager.ControllerRumble(.5f));
                 source.PlayOneShot(_munch ? munchSFX[1] : munchSFX[0]);
                 _munch = !_munch;
             }
@@ -306,6 +324,9 @@ public class Player : MonoBehaviour
                 pellet.GetComponent<Node>().eaten = true;
                 manager.score += pellet.GetComponent<Node>().scoreValue;
                 manager.eatenPellets++;
+                manager.pelletFruitCounter++;
+                source.PlayOneShot(superPelletEat);
+                manager.CheckToAppearFruit();
                 manager.CheckForSirenChange();
                 manager.TriggerSuperPellet();
             }

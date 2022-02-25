@@ -13,6 +13,7 @@ public class DifficultySetting : ScriptableObject
     public float superPelletMaxDuration;
     public float pacManSpeed;
     public int pacManStartingLives;
+    public float fruitLifeTime;
 }
 
 [System.Serializable]
