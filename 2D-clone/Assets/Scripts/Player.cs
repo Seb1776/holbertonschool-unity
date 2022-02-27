@@ -6,12 +6,19 @@ using UnityEngine.InputSystem.DualShock;
 
 public class Player : MonoBehaviour
 {
+    public enum PlayerType { PacMan, Ghost}
     [Header("Player")]
+    public PlayerType playerType;
+    public enum PlayerNumber { PlayerOne, PlayerTwo }
+    public PlayerNumber playerNumber;
+    public enum PlayerController { Keyboard, Controller }
+    public PlayerController playerController;
     public float moveSpeed;
     public bool canMove = true;
     public Node.ValidDirections startingDirection;
     public Vector2 orientation;
     public Node startingNode;
+    public GameObject invulField;
     public int pacManLives;
     [Header("SFX")]
     public AudioClip[] munchSFX;
@@ -22,6 +29,9 @@ public class Player : MonoBehaviour
 
     AudioSource source;
     bool _munch;
+    public bool invul;
+    bool countInvul;
+    float currentInvulTime;
     bool controllerAvailable;
     Node currentNode, targetNode, previousNode;
     SpriteRenderer pacmanSprite;
@@ -73,6 +83,21 @@ public class Player : MonoBehaviour
 
             if (manager.createdFruit != null)
                 CheckCollisions();
+            
+            if (countInvul)
+            {
+                if (currentInvulTime >= 5f)
+                {
+                    invul = false;
+                    countInvul = false;
+                    currentInvulTime = 0f;
+                }
+
+                else
+                    currentInvulTime += Time.deltaTime;
+            }
+
+            invulField.SetActive(invul);
         }
     }
 
@@ -89,14 +114,22 @@ public class Player : MonoBehaviour
     }
 
     void CheckCollisions()
-    {
-        Rect playerRect = new Rect(transform.position, transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
-        Rect fruitRect = new Rect(manager.createdFruit.transform.position, manager.createdFruit.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 115f);
-
-        if (playerRect.Overlaps(fruitRect))
+    {   
+        if (transform.GetChild(0).GetComponent<SpriteRenderer>() != null)
         {
-            source.PlayOneShot(manager.createdFruit.GetComponent<Fruit>().collectedFruit);
-            manager.createdFruit.GetComponent<Fruit>().CollectedFruit();
+            Rect playerRect = new Rect(transform.position, transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
+            Rect fruitRect = new Rect(manager.createdFruit.transform.position, manager.createdFruit.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 115f);
+
+            if (playerRect.Overlaps(fruitRect))
+            {
+                source.PlayOneShot(manager.createdFruit.GetComponent<Fruit>().collectedFruit);
+
+                if (manager.currentGamemode == GameManager.GameMode.Classic)
+                    manager.createdFruit.GetComponent<Fruit>().CollectedFruit();
+                
+                else if (manager.currentGamemode == GameManager.GameMode.PVP2P)
+                    manager.createdFruit.GetComponent<Fruit>().SpecificPlayerCollectedFruit(this);
+            }
         }
     }
 
@@ -105,7 +138,7 @@ public class Player : MonoBehaviour
         animator.SetBool("moving", (playerInputVector == Vector2.zero) ? false: true);
     }
 
-    void Move ()
+    void Move()
     {
         if (targetNode != currentNode && targetNode != null)
         {
@@ -233,40 +266,60 @@ public class Player : MonoBehaviour
 
     void CheckInput()
     {   
-        if (!useController)
-        {
-            if (Keyboard.current.leftArrowKey.wasPressedThisFrame)
-                ChangePosition(Vector2.left);
-            
-            else if (Keyboard.current.rightArrowKey.wasPressedThisFrame)
-                ChangePosition(Vector2.right);
-            
-            else if (Keyboard.current.downArrowKey.wasPressedThisFrame)
-                ChangePosition(Vector2.down);
-            
-            else if (Keyboard.current.upArrowKey.wasPressedThisFrame)
-                ChangePosition(Vector2.up);
+        if (playerController != PlayerController.Controller)
+        {   
+            if (playerNumber == PlayerNumber.PlayerOne)
+            {
+                if (Keyboard.current.leftArrowKey.wasPressedThisFrame)
+                    ChangePosition(Vector2.left);
+                
+                else if (Keyboard.current.rightArrowKey.wasPressedThisFrame)
+                    ChangePosition(Vector2.right);
+                
+                else if (Keyboard.current.downArrowKey.wasPressedThisFrame)
+                    ChangePosition(Vector2.down);
+                
+                else if (Keyboard.current.upArrowKey.wasPressedThisFrame)
+                    ChangePosition(Vector2.up);
+            }
+
+            else
+            {
+                if (Keyboard.current.aKey.wasPressedThisFrame)
+                    ChangePosition(Vector2.left);
+                
+                else if (Keyboard.current.dKey.wasPressedThisFrame)
+                    ChangePosition(Vector2.right);
+                
+                else if (Keyboard.current.sKey.wasPressedThisFrame)
+                    ChangePosition(Vector2.down);
+                
+                else if (Keyboard.current.wKey.wasPressedThisFrame)
+                    ChangePosition(Vector2.up);
+            }
         }
 
         else
         {
-            if (Gamepad.all[0].dpad.left.wasPressedThisFrame)
+            Debug.Log(Gamepad.all[manager.controllerOneIndexToUse]);
+
+            if (Gamepad.all[manager.controllerOneIndexToUse].dpad.left.wasPressedThisFrame)
                 ChangePosition(Vector2.left);
             
-            else if (Gamepad.all[0].dpad.right.wasPressedThisFrame)
+            else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.right.wasPressedThisFrame)
                 ChangePosition(Vector2.right);
             
-            else if (Gamepad.all[0].dpad.down.wasPressedThisFrame)
+            else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.down.wasPressedThisFrame)
                 ChangePosition(Vector2.down);
             
-            else if (Gamepad.all[0].dpad.up.wasPressedThisFrame)
+            else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.up.wasPressedThisFrame)
                 ChangePosition(Vector2.up);
         }
     }
 
     void CheckJoystickInput(InputAction.CallbackContext context)
     {   
-        if (useController)
+        /*if (playerController == PlayerController.Controller)
         {
             gamepadAxis = context.ReadValue<Vector2>();
 
@@ -281,7 +334,7 @@ public class Player : MonoBehaviour
                 
             else if (gamepadAxis == Vector2.up)
                 ChangePosition(Vector2.up);
-        }
+        }*/
     }
 
     GameObject GetPelletAtPosition(Vector2 pos)
@@ -307,12 +360,22 @@ public class Player : MonoBehaviour
             {
                 pellet.GetComponent<SpriteRenderer>().enabled = false;
                 pellet.GetComponent<Node>().eaten = true;
-                manager.score += pellet.GetComponent<Node>().scoreValue;
-                manager.eatenPellets++;
+
+                if (playerNumber == PlayerNumber.PlayerOne)
+                {
+                    manager.score += pellet.GetComponent<Node>().scoreValue;
+                    manager.eatenPellets++;
+                }
+                
+                else
+                {
+                    manager.p2Score += pellet.GetComponent<Node>().scoreValue;
+                    manager.p2EatenPellets++;
+                }
+                
                 manager.pelletFruitCounter++;
                 manager.CheckToAppearFruit();
                 manager.CheckForSirenChange();
-                StartCoroutine(manager.ControllerRumble(.5f));
                 source.PlayOneShot(_munch ? munchSFX[1] : munchSFX[0]);
                 _munch = !_munch;
             }
@@ -322,8 +385,19 @@ public class Player : MonoBehaviour
                 //Super Pellet
                 pellet.GetComponent<SpriteRenderer>().enabled = false;
                 pellet.GetComponent<Node>().eaten = true;
-                manager.score += pellet.GetComponent<Node>().scoreValue;
-                manager.eatenPellets++;
+
+                if (playerNumber == PlayerNumber.PlayerOne)
+                {
+                    manager.score += pellet.GetComponent<Node>().scoreValue;
+                    manager.eatenPellets++;
+                }
+                
+                else
+                {
+                    manager.p2Score += pellet.GetComponent<Node>().scoreValue;
+                    manager.p2EatenPellets++;
+                }
+
                 manager.pelletFruitCounter++;
                 source.PlayOneShot(superPelletEat);
                 manager.CheckToAppearFruit();
@@ -351,6 +425,17 @@ public class Player : MonoBehaviour
     public void Restart()
     {
         canMove = true;
+        animator.SetTrigger("reappear");
+        transform.position = startingNode.transform.position;
+        currentNode = startingNode;
+        playerInputVector = orientation = nextDirection = currentNode.ConvertDirectionFromEnum(startingDirection);
+        ChangePosition(playerInputVector);
+    }
+
+    public void RestartWithInvul()
+    {
+        canMove = true;
+        countInvul = true;
         animator.SetTrigger("reappear");
         transform.position = startingNode.transform.position;
         currentNode = startingNode;

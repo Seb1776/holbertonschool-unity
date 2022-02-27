@@ -30,6 +30,31 @@ public class Fruit : MonoBehaviour
         Destroy(this.gameObject);
     }
 
+    public void SpecificPlayerCollectedFruit(Player player)
+    {
+        if (player == manager.pacMan)
+        {
+            manager.playerOneFruits[manager.fruitIndex].GetComponent<Animator>().ResetTrigger("lock");
+            manager.playerOneFruits[manager.fruitIndex].GetComponent<Animator>().SetTrigger("collected");
+        }
+
+        else if (player == manager.pacMan2)
+        {
+            manager.playerTwoFruits[manager.fruitIndex].GetComponent<Animator>().ResetTrigger("lock");
+            manager.playerTwoFruits[manager.fruitIndex].GetComponent<Animator>().SetTrigger("collected");
+        }
+
+        manager.fruitIndex++;
+        manager.pelletFruitCounter = 0;
+
+        if (manager.fruitIndex >= manager.playerOneFruits.Length - 1)
+            manager.ateAllFruits = true;
+        
+        manager.createdFruit = null;
+        manager.score += scoreValue;
+        Destroy(this.gameObject);
+    }
+
     public void DestroyFruit()
     {
         StartCoroutine(WaitToDestroy());

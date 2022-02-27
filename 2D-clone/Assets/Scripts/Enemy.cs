@@ -93,21 +93,72 @@ public class Enemy : MonoBehaviour
             
             CheckCollisions();
             CheckIsInHouse();
+            CheckPreferredTarget();
         }
     }
 
     void CheckCollisions()
     {
+        Rect pacMan2Rect = new Rect(Vector2.zero, Vector2.zero);
+        Rect pacManRect = new Rect(Vector2.zero, Vector2.zero);
         Rect ghostRect = new Rect(transform.position, transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size /16f);
-        Rect targetRect = new Rect(target.position, target.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
 
-        if (ghostRect.Overlaps(targetRect))
+        if (manager.pacMan2 != null)
         {
-            if (ghostMode == GhostMode.Frightened)
-                ConsumedGhost();
+            if (manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>() != null)
+                pacManRect = new Rect(manager.pacMan.transform.position, manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
             
-            else if (ghostMode != GhostMode.Frightened && ghostMode != GhostMode.Consumed)
-                manager.StartDeath();
+            if (manager.pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>() != null)
+                pacMan2Rect = new Rect(manager.pacMan2.transform.position, manager.pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
+
+            if (ghostRect.Overlaps(pacMan2Rect))
+            {
+                if (ghostMode == GhostMode.Frightened)
+                    ConsumedGhost();
+                
+                else if ((ghostMode != GhostMode.Frightened && ghostMode != GhostMode.Consumed) && !manager.pacMan2.invul)
+                {
+                    manager.ghostKilledName = gameObject.name.Replace("(Clone)", string.Empty).ToLower();
+                    manager.StartDeath(manager.pacMan2);
+                }
+            }
+
+            if (ghostRect.Overlaps(pacManRect) && manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>() != null)
+            {
+                if (ghostMode == GhostMode.Frightened)
+                    ConsumedGhost();
+                
+                else if ((ghostMode != GhostMode.Frightened && ghostMode != GhostMode.Consumed) && !manager.pacMan.invul)
+                {
+                    manager.ghostKilledName = gameObject.name.Replace("(Clone)", string.Empty).ToLower();
+                    manager.StartDeath(manager.pacMan);
+                }
+            }
+        }
+
+        else
+        {
+            pacManRect = new Rect(manager.pacMan.transform.position, manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
+
+            if (ghostRect.Overlaps(pacManRect))
+            {
+                if (ghostMode == GhostMode.Frightened)
+                    ConsumedGhost();
+                
+                else if (ghostMode != GhostMode.Frightened && ghostMode != GhostMode.Consumed)
+                {
+                    manager.ghostKilledName = gameObject.name.Replace("(Clone)", string.Empty).ToLower();
+                    manager.StartDeath();
+                }
+            }
+        }
+    }
+
+    void CheckPreferredTarget()
+    {
+        if (target != manager.GetPreferredTarget() && (manager.currentGamemode != GameManager.GameMode.Classic || manager.currentGamemode != GameManager.GameMode.TimeTrial))
+        {
+            target = manager.GetPreferredTarget();
         }
     }
 
@@ -157,38 +208,62 @@ public class Enemy : MonoBehaviour
 
     IEnumerator ConsumeGhostDelay(float delay, int ghostScore)
     {
-        target.GetComponent<Player>().canMove = false;
+        manager.pacMan.canMove = false;
+
+        if (manager.pacMan2 != null) manager.pacMan2.canMove = false;
+
         manager.blinky.canMove = manager.pinky.canMove = manager.inky.canMove = manager.clyde.canMove = false;
         manager.musicSource.Pause();
         manager.countTime = false;
         transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
-        target.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
+        manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
+        if (manager.pacMan2 != null) manager.pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
         scoreConsumeText.text = ghostScore.ToString();
 
         yield return new WaitForSeconds(delay);
 
         scoreConsumeText.text = string.Empty;
-        target.GetComponent<Player>().canMove = true;
+        manager.pacMan.canMove = true;
+
+        if (manager.pacMan2 != null) manager.pacMan2.canMove = true;
+
         manager.countTime = true;
         manager.blinky.canMove = manager.pinky.canMove = manager.inky.canMove = manager.clyde.canMove = true;
         manager.musicSource.Play();
         transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
-        target.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
+        manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
+        if (manager.pacMan2 != null) manager.pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
 
         HandleAnimations();
     }
 
-    void ConsumedGhost()
-    {
-        manager.consumedGhosts++;
-        manager.ghostToConsume--;
-        manager.score += manager.lastGhostScore;
-        manager.CheckForConsumedGhosts(true);
-        source.PlayOneShot(consumeSFX);
-        ghostMode = GhostMode.Consumed;
-        currentMoveSpeed = consumedMoveSpeed;
-        StartCoroutine(ConsumeGhostDelay(consumeSFX.length, manager.lastGhostScore));
-        manager.lastGhostScore += manager.lastGhostScore;
+    void ConsumedGhost(Player eatedBy = null)
+    {   
+        if (eatedBy == null || eatedBy == manager.pacMan)
+        {
+            manager.consumedGhosts++;
+            manager.ghostToConsume--;
+            manager.score += manager.lastGhostScore;
+            manager.CheckForConsumedGhosts(true);
+            source.PlayOneShot(consumeSFX);
+            ghostMode = GhostMode.Consumed;
+            currentMoveSpeed = consumedMoveSpeed;
+            StartCoroutine(ConsumeGhostDelay(consumeSFX.length, manager.lastGhostScore));
+            manager.lastGhostScore += manager.lastGhostScore;
+        }
+
+        else if (eatedBy == manager.pacMan2)
+        {
+            manager.consumedGhosts++;
+            manager.ghostToConsume--;
+            manager.p2Score += manager.p2LastGhostScore;
+            manager.CheckForConsumedGhosts(true);
+            source.PlayOneShot(consumeSFX);
+            ghostMode = GhostMode.Consumed;
+            currentMoveSpeed = consumedMoveSpeed;
+            StartCoroutine(ConsumeGhostDelay(consumeSFX.length, manager.p2LastGhostScore));
+            manager.p2LastGhostScore += manager.p2LastGhostScore;
+        }
     }
 
     public void Restart()

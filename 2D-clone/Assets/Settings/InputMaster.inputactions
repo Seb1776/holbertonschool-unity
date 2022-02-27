@@ -80,17 +80,6 @@
                 },
                 {
                     "name": "2D Vector",
-                    "id": "8e059104-19c7-4c11-9b3d-99bcb88826fe",
-                    "path": "2DVector",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Movement",
-                    "isComposite": true,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "2D Vector",
                     "id": "9ee0d4f4-43a8-4ec0-846f-d4176be525a8",
                     "path": "2DVector",
                     "interactions": "",

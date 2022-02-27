@@ -37,5 +37,5 @@ MonoBehaviour:
   maxIterationModes: 5
   superPelletMaxDuration: 7.5
   pacManSpeed: 7
-  pacManStartingLives: 4
+  pacManStartingLives: 99
   fruitLifeTime: 15
