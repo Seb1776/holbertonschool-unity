@@ -26,13 +26,24 @@ public class GameManager : MonoBehaviour
     public float startingTime;
     public int pelletsToAddTime;
     public int timeTrialPelletCount;
+    public float initialTimerMultiplier;
+    public float timerMultiplierIncrements;
     public float pelletAddTimeValue;
     public float superPelletAddTimeValue;
     public float ghostAddTimeValue;
     public float startingPacmanSpeed;
+    public float maxPacmanSpeed;
     public float startingGhostsSpeed;
+    public float maxGhostsSpeed;
+    public float timeBtwFruitRolls;
     public float pacmanSpeedPercentageIncrement;
     public float ghostSpeedPercentageIncrement;
+    public float maxTimeIncrements;
+    public AudioClip fruitRouletteRoll;
+    public AudioClip fruitRouletteSelection;
+    public Sprite[] allFruitsImages;
+    public Fruit[] allFruits;
+    public Animator fruitRoulette;
     [Header ("Board")]
     public Node[] cornerNodes;
     public List<Node> allNodes;
@@ -63,7 +74,10 @@ public class GameManager : MonoBehaviour
     public AudioClip consumedGhostMusic;
     public AudioClip pacManDeath;
     public AudioClip introMusic;
+    public AudioClip timeTrialIntroMusic;
     public AudioClip winMusic;
+    public AudioClip extraTimeSFX;
+    public CustomGamemodeMusic gameModeCustomMusic;
     public AudioSource musicSource;
     public int consumedGhosts;
     public int ghostToConsume;
@@ -85,6 +99,7 @@ public class GameManager : MonoBehaviour
     public string ghostKilledName;
     public Animator gameOverPanel;
     public GameObject classicGameOver;
+    public GameObject timeTrialGameOver;
     public Animator winPanel;
     public GameObject classicWin, pvp2PWin;
     public GameObject[] killedGhosts;
@@ -106,6 +121,9 @@ public class GameManager : MonoBehaviour
     public Slider timeRemainingSlider;
     public TMP_Text timeRemainingText;
     public GameObject pelletAddTime, superPelletAddTime, ghostAddTime;
+    public TMP_Text timeTrialTotalScore, timeTrialTotalTime;
+    public TMP_Text timeTrialTotalTimeGO;
+    public Image[] fruitTimeTrialGO;
 
     [Header ("Controllers")]
     public Player player;
@@ -118,13 +136,20 @@ public class GameManager : MonoBehaviour
     public int fruitIndex;
     int totalLevelPellets;
     int combinedPellets;
+    public int timeTrialEatenFruits;
+    float currentTimeBtwFruitRolls;
     bool winAct;
     bool startDeath;
     bool inSuperPellet;
+    bool ateFruit;
+    float currentAteFruitTime;
     bool canTimeTrial;
+    bool canFruitRoulette;
     bool playGameOverMusic;
+    bool rollRoulette;
     bool _playedGO;
     bool on2PLoose;
+    Fruit fruitRollSelected;
     Player winner;
     float currentTimeTrialTime;
     float timeAct1, timeAct2, timeAct3;
@@ -176,10 +201,24 @@ public class GameManager : MonoBehaviour
         }
 
         else if (currentGamemode == GameMode.Classic)
+        {
+            if (pacMan2 != null)
+            {
+                pacMan2.gameObject.SetActive(false);
+                pacMan2 = null;
+            }
+
             classicHUD.SetActive(true);
+        }
         
         else if (currentGamemode == GameMode.TimeTrial)
         {
+            if (pacMan2 != null)
+            {
+                pacMan2.gameObject.SetActive(false);
+                pacMan2 = null;
+            }
+
             SetUpTimeTrial();
             timeTrialHUD.SetActive(true);
         }
@@ -195,7 +234,11 @@ public class GameManager : MonoBehaviour
                 timeTrialHUD.SetActive(true);
         }
         
-        StartCoroutine(StartCutscene(introMusic.length));
+        if (currentGamemode == GameMode.Classic || currentGamemode == GameMode.PVP2P)
+            StartCoroutine(StartCutscene(introMusic.length));
+
+        else if (currentGamemode == GameMode.TimeTrial)
+            StartCoroutine(StartCutsceneTimeTrial(timeTrialIntroMusic.length));
     }
 
     void Update()
@@ -426,24 +469,93 @@ public class GameManager : MonoBehaviour
     {
         currentTimeTrialTime = startingTime;
         timeRemainingSlider.maxValue = startingTime;
+
+        fruitRollSelected = allFruits[UnityEngine.Random.Range(0, allFruits.Length)];
     }
 
     public void AddTimeTrialTime(string context)
     {
+        GameObject _tmpP = null;
+
         switch (context)
         {
             case "pellet":
-                Instantiate();
+                _tmpP = Instantiate(pelletAddTime, pelletAddTime.transform.position, Quaternion.identity, timeTrialHUD.transform.GetChild(2).transform);
+                _tmpP.GetComponent<RectTransform>().anchoredPosition = new Vector3(-39f, -346f, 0f);
+                _tmpP.transform.GetChild(1).GetComponent<TMP_Text>().text = "+ " + pelletAddTimeValue.ToString();
+
+                if ((pelletAddTimeValue + currentTimeTrialTime) > startingTime)
+                    currentTimeTrialTime = startingTime;
+                
+                else
+                    currentTimeTrialTime += pelletAddTimeValue;
+                
+                IncreaseMaximumTimer();
+                initialTimerMultiplier += timerMultiplierIncrements;
+                
+                foreach (Enemy g in allGhosts)
+                {   
+                    if (g.moveSpeed < maxGhostsSpeed)
+                    {
+                        g.moveSpeed += GetValueFromPercentage(ghostSpeedPercentageIncrement, g.moveSpeed);
+                        g.consumedMoveSpeed += GetValueFromPercentage(ghostSpeedPercentageIncrement, g.moveSpeed);
+                    }
+
+                    if (g.moveSpeed >= maxGhostsSpeed)
+                    {
+                        g.moveSpeed = maxGhostsSpeed;
+                        g.consumedMoveSpeed = maxGhostsSpeed * 2f;
+                    }
+                }
+                
+                if (pacMan.moveSpeed < maxPacmanSpeed)
+                    pacMan.moveSpeed += GetValueFromPercentage(ghostSpeedPercentageIncrement, pacMan.moveSpeed);
+                
+                if (pacMan.moveSpeed >= maxPacmanSpeed)
+                    pacMan.moveSpeed = maxPacmanSpeed;
+
+                Destroy(_tmpP.gameObject, 0.46f);
             break;
 
             case "superpellet":
-                Instantiate();
+                _tmpP = Instantiate(superPelletAddTime, pelletAddTime.transform.position, Quaternion.identity, timeTrialHUD.transform.GetChild(2).transform);
+                _tmpP.GetComponent<RectTransform>().anchoredPosition = new Vector3(-39f, -346f, 0f);
+                _tmpP.transform.GetChild(1).GetComponent<TMP_Text>().text = "+ " + superPelletAddTimeValue.ToString();
+                
+                if ((superPelletAddTimeValue + currentTimeTrialTime) > startingTime)
+                    currentTimeTrialTime = startingTime;
+                
+                else
+                    currentTimeTrialTime += superPelletAddTimeValue;
+                
+                Destroy(_tmpP.gameObject, 0.46f);
             break;
 
             case "ghost":
-                Instantiate();
+                _tmpP = Instantiate(ghostAddTime, pelletAddTime.transform.position, Quaternion.identity, timeTrialHUD.transform.GetChild(2).transform);
+                _tmpP.GetComponent<RectTransform>().anchoredPosition = new Vector3(-39f, -346f, 0f);
+                _tmpP.transform.GetChild(1).GetComponent<TMP_Text>().text = "+ " + ghostAddTimeValue.ToString();
+                
+                if ((ghostAddTimeValue + currentTimeTrialTime) > startingTime)
+                    currentTimeTrialTime = startingTime;
+                
+                else
+                    currentTimeTrialTime += ghostAddTimeValue;
+                
+                IncreaseMaximumTimer();
+                initialTimerMultiplier += timerMultiplierIncrements;
+                
+                Destroy(_tmpP.gameObject, 0.46f);
             break;
         }
+        
+        pacMan.GetComponent<AudioSource>().PlayOneShot(extraTimeSFX);
+    }
+
+    void IncreaseMaximumTimer()
+    {
+        startingTime += maxTimeIncrements;
+        timeRemainingSlider.maxValue = startingTime;
     }
 
     void CheckForPVP2PSpecifics()
@@ -484,14 +596,91 @@ public class GameManager : MonoBehaviour
 
     void CheckForTimeTrialSpecifics()
     {   
+        if (ateFruit)
+        {
+            if (currentAteFruitTime >= 3f)
+            {
+                ateFruit = false;
+                canTimeTrial = true;
+                currentAteFruitTime = 0f;
+            }
+
+            else
+                currentAteFruitTime += Time.deltaTime;
+        }
+
         if (canTimeTrial)
+        {
             if (currentTimeTrialTime > 0 && currentTimeTrialTime <= startingTime)
-                currentTimeTrialTime -= Time.deltaTime;
+                currentTimeTrialTime -= Time.deltaTime * initialTimerMultiplier;
+        }
+
+        if (canFruitRoulette)
+        {
+            if (currentTimeBtwFruitRolls >= timeBtwFruitRolls)
+            {
+                canFruitRoulette = false;
+                currentTimeBtwFruitRolls = 0f;
+                StartCoroutine(FruitRoulette());
+            }
+
+            else
+                currentTimeBtwFruitRolls += Time.deltaTime;
+        }
         
         timeRemainingSlider.value = currentTimeTrialTime;
 
         timeRemainingText.text = TimeSpan.FromSeconds(currentTimeTrialTime).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(currentTimeTrialTime).Seconds.ToString("D2") + ":" +
                         TimeSpan.FromSeconds(currentTimeTrialTime).Milliseconds.ToString();
+                    
+        timeTrialTotalScore.text = score.ToString("D7");
+
+        timeTrialTotalTime.text = TimeSpan.FromSeconds(timeSpent).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(timeSpent).Seconds.ToString("D2") + ":" +
+                        TimeSpan.FromSeconds(timeSpent).Milliseconds.ToString();
+    }
+
+    IEnumerator FruitRoulette()
+    {
+        canFruitRoulette = false;
+        rollRoulette = true;
+        StartCoroutine(RollFruits());
+        fruitRoulette.SetTrigger("roll");
+        fruitRoulette.GetComponent<AudioSource>().PlayOneShot(fruitRouletteRoll);
+
+        yield return new WaitForSeconds(fruitRouletteRoll.length);
+
+        fruitRoulette.GetComponent<AudioSource>().PlayOneShot(fruitRouletteSelection);
+        rollRoulette = false;
+        StopCoroutine(RollFruits());
+        fruitRoulette.transform.GetChild(0).GetComponent<Image>().sprite = fruitRollSelected.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+
+        createdFruit = Instantiate(fruitRollSelected.gameObject, fruitSpawn.position, Quaternion.identity);
+        createdFruit.GetComponent<Fruit>().lifeTime = 5f;
+        createdFruit.GetComponent<Fruit>().DestroyFruit();
+
+        yield return new WaitForSeconds(fruitRouletteSelection.length + 1f);
+
+        fruitRoulette.SetTrigger("hide");
+
+        yield return new WaitForSeconds(.25f);
+
+        fruitRollSelected = allFruits[UnityEngine.Random.Range(0, allFruits.Length)];
+        canFruitRoulette = true;
+    }
+
+    public void StopTimer()
+    {
+        canTimeTrial = false;
+        ateFruit = true;
+    }
+
+    IEnumerator RollFruits()
+    {
+        while (rollRoulette)
+        {
+            fruitRoulette.transform.GetChild(0).GetComponent<Image>().sprite = allFruitsImages[UnityEngine.Random.Range(0, allFruitsImages.Length)];
+            yield return new WaitForSeconds(.05f);
+        }
     }
 
     int GetAllPelletsOf2Player(int player)
@@ -581,7 +770,13 @@ public class GameManager : MonoBehaviour
         {
             difficultyName.text = difficulty.difficultyName;
             superPelletTime = difficulty.superPelletMaxDuration;
-            pacMan.moveSpeed = difficulty.pacManSpeed;
+
+            if (currentGamemode != GameMode.TimeTrial)
+                pacMan.moveSpeed = difficulty.pacManSpeed;
+            
+            else
+                pacMan.moveSpeed = startingPacmanSpeed;
+
             pacMan.pacManLives = difficulty.pacManStartingLives;
 
             if (currentGamemode != GameMode.Classic || currentGamemode != GameMode.TimeTrial || currentGamemode != GameMode.GhostVPlayer)
@@ -590,8 +785,11 @@ public class GameManager : MonoBehaviour
                 pacMan2.pacManLives = difficulty.pacManStartingLives;
             }
 
-            customMusic = difficulty.customMusic;
-            musicMode = difficulty.difficultyMusicMode;
+            if (currentGamemode != GameMode.TimeTrial)
+            {
+                customMusic = difficulty.customMusic;
+                musicMode = difficulty.difficultyMusicMode;
+            }
 
             foreach (Fruit f in roundFruits)
                 f.lifeTime = difficulty.fruitLifeTime;
@@ -620,8 +818,19 @@ public class GameManager : MonoBehaviour
                 }
 
                 tempGhost.timeToReleaseGhost = difficulty.ghostConfigs[i].timeToRelease;
-                tempGhost.moveSpeed = difficulty.ghostConfigs[i].ghostMoveSpeed;
-                tempGhost.consumedMoveSpeed = difficulty.ghostConfigs[i].ghostConsumedSpeed;
+
+                if (currentGamemode == GameMode.TimeTrial)
+                {
+                    tempGhost.moveSpeed = difficulty.ghostConfigs[i].ghostMoveSpeed;
+                    tempGhost.consumedMoveSpeed = difficulty.ghostConfigs[i].ghostConsumedSpeed;
+                }
+
+                else
+                {
+                    tempGhost.moveSpeed = startingGhostsSpeed;
+                    tempGhost.consumedMoveSpeed = startingGhostsSpeed * 2.5f;
+                }
+                
                 tempGhost.maxModeChangeIteration = difficulty.maxIterationModes;
                 tempGhost.scatterModeTimes = difficulty.scatterModeTimes;
                 tempGhost.chaseModeTimes = difficulty.chaseModeTimes;
@@ -667,6 +876,32 @@ public class GameManager : MonoBehaviour
 
         if (currentGamemode == GameMode.TimeTrial)
             canTimeTrial = true;
+
+        musicSource.loop = true;
+    }
+
+    IEnumerator StartCutsceneTimeTrial(float delay)
+    {
+        musicSource.PlayOneShot(timeTrialIntroMusic);
+        pacMan.canMove = false;
+        blinky.canMove = pinky.canMove = inky.canMove = clyde.canMove = false;
+        pacMan.GetComponent<Animator>().SetBool("moving", false);
+
+        yield return new WaitForSeconds(delay);
+
+        countTime = true;
+        pacMan.canMove = true;
+        blinky.canMove = pinky.canMove = inky.canMove = clyde.canMove = true;
+
+        musicSource.clip = customMusic;
+        musicSource.Play();
+        
+
+        if (currentGamemode == GameMode.TimeTrial)
+        {
+            canTimeTrial = true;
+            canFruitRoulette = true;
+        }
 
         musicSource.loop = true;
     }
@@ -932,6 +1167,46 @@ public class GameManager : MonoBehaviour
                     StartCoroutine(PVP2PWinActAnimation());
             }
         }
+
+        else if (currentGamemode == GameMode.TimeTrial)
+        {
+            if (eatenPellets >= totalPellets && !winAct)
+            {
+                winAct = true;
+                StartCoroutine(TimeTrialClearBoard());
+            }
+        }
+    }
+
+    IEnumerator TimeTrialClearBoard()
+    {
+        pacMan.GetComponent<AudioSource>().PlayOneShot(extraTimeSFX);
+
+        foreach (Enemy g in allGhosts)
+            g.canMove = false;
+
+        pacMan.canMove = false;
+        currentTimeTrialTime += 10;
+
+        for (int i = 0; i < allNodes.Count; i++)
+        {
+            if (!allNodes[i].invisiblePellet && allNodes[i].eaten)
+            {
+                allNodes[i].GetComponent<SpriteRenderer>().enabled = true;
+                allNodes[i].GetComponent<Node>().eaten = false;
+            }
+        }
+
+        eatenPellets = 0;
+
+        yield return new WaitForSeconds(.5f);
+
+        foreach (Enemy g in allGhosts)
+            g.canMove = true;
+
+        pacMan.canMove = true;
+
+        winAct = false;
     }
 
     IEnumerator PVP2PWinWin()
@@ -1416,8 +1691,11 @@ public class GameManager : MonoBehaviour
             StartCoroutine(ProcessAfterDeath2Player(2f, pacManTo));
         }
 
-        else if (currentGamemode == GameMode.Classic || currentGamemode == GameMode.TimeTrial)
+        else if (currentGamemode == GameMode.Classic)
             StartCoroutine(ProcessAfterDeath(2f));
+        
+        else if (currentGamemode == GameMode.TimeTrial)
+            StartCoroutine(ProcessAfterDeathTimeTrial(2f));
     }
 
     IEnumerator ProcessAfterDeath2Player(float delay, Player pacManTo)
@@ -1487,10 +1765,57 @@ public class GameManager : MonoBehaviour
         StartCoroutine(ProcessDeathAnimation(1.9f));
     }
 
+    IEnumerator ProcessAfterDeathTimeTrial(float delay)
+    {
+        timeTrialGameOver.SetActive(true);
+        countTime = false;
+        canTimeTrial = false;
+        ateFruit = false;
+        StopCoroutine(FruitRoulette());
+        canFruitRoulette = false;
+        yield return new WaitForSeconds(delay);
+        blinky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        inky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        pinky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        clyde.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
+
+        pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().flipX =
+        pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().flipY = false;
+
+        pacMan.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+
+        pacMan.GetComponent<Animator>().SetTrigger("death");
+        animator.SetTrigger("pacdeathstart");
+
+        musicSource.PlayOneShot(pacManDeath);
+
+        yield return new WaitForSeconds(1.9f);
+
+        musicSource.clip = customMusic;
+        musicSource.Play();
+        gameOverPanel.SetTrigger("ui_gameover");
+        
+        if (timeTrialEatenFruits <= fruitTimeTrialGO.Length)
+        {
+            for (int i = 0; i < timeTrialEatenFruits; i++)
+            {
+                fruitTimeTrialGO[i].gameObject.SetActive(true);
+                fruitTimeTrialGO[i].sprite = allFruitsImages[UnityEngine.Random.Range(0, allFruitsImages.Length)];
+            }
+        }
+        
+        else
+        {
+            foreach (Image i in fruitTimeTrialGO)
+            {
+                i.gameObject.SetActive(true);
+                i.sprite = allFruitsImages[UnityEngine.Random.Range(0, allFruitsImages.Length)];
+            }
+        }
+    }
+
     IEnumerator ProcessDeathAnimation(float delay)
     {
-        Debug.Log("here3");
-
         if (createdFruit != null)
             createdFruit.GetComponent<Fruit>().InstaDestroyFruit();
 
@@ -1707,6 +2032,11 @@ public class GameManager : MonoBehaviour
         StartCoroutine(LoadScene(SceneManager.GetActiveScene().buildIndex));
     }
 
+    public float GetValueFromPercentage(float percentageToTake, float value)
+    {
+        return (value * percentageToTake) / 100f;
+    }
+
     IEnumerator LoadScene(int sceneName)
     {
         yield return new WaitForSeconds(1.5f);
@@ -1732,4 +2062,11 @@ public class ClassicHUDWin
 public class ClassicHUDFruit
 {
     public GameObject colorFruit, grayFruit;
+}
+
+[System.Serializable]
+public class CustomGamemodeMusic
+{
+    public AudioClip start;
+    public AudioClip music;
 }

@@ -16,17 +16,26 @@ public class Fruit : MonoBehaviour
     }
 
     public void CollectedFruit()
-    {
-        manager.fruits[manager.fruitIndex].GetComponent<Animator>().ResetTrigger("lock");
-        manager.fruits[manager.fruitIndex].GetComponent<Animator>().SetTrigger("collected");
-        manager.classicHUDWin[manager.currentActIndex].fruitActs[manager.fruitIndex].grayFruit.SetActive(false);
-        manager.classicHUDWin[manager.currentActIndex].fruitActs[manager.fruitIndex].colorFruit.SetActive(true);
-        manager.classicHUDWin[manager.currentActIndex].collectedFruits++;
-        manager.fruitIndex++;
-        manager.pelletFruitCounter = 0;
+    {   
+        if (manager.currentGamemode != GameManager.GameMode.TimeTrial)
+        {
+            manager.fruits[manager.fruitIndex].GetComponent<Animator>().ResetTrigger("lock");
+            manager.fruits[manager.fruitIndex].GetComponent<Animator>().SetTrigger("collected");
+            manager.classicHUDWin[manager.currentActIndex].fruitActs[manager.fruitIndex].grayFruit.SetActive(false);
+            manager.classicHUDWin[manager.currentActIndex].fruitActs[manager.fruitIndex].colorFruit.SetActive(true);
+            manager.classicHUDWin[manager.currentActIndex].collectedFruits++;
+            manager.fruitIndex++;
+            manager.pelletFruitCounter = 0;
 
-        if (manager.fruitIndex > manager.fruits.Length - 1)
-            manager.ateAllFruits = true;
+            if (manager.fruitIndex > manager.fruits.Length - 1)
+                manager.ateAllFruits = true;
+        }
+
+        else if (manager.currentGamemode == GameManager.GameMode.TimeTrial)
+        {
+            manager.timeTrialEatenFruits++;
+            manager.StopTimer();
+        }
 
         manager.createdFruit = null;
         manager.score += scoreValue;

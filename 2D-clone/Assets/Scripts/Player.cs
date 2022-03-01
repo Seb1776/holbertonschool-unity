@@ -124,7 +124,7 @@ public class Player : MonoBehaviour
             {
                 source.PlayOneShot(manager.createdFruit.GetComponent<Fruit>().collectedFruit);
 
-                if (manager.currentGamemode == GameManager.GameMode.Classic)
+                if (manager.currentGamemode == GameManager.GameMode.Classic || manager.currentGamemode == GameManager.GameMode.TimeTrial)
                     manager.createdFruit.GetComponent<Fruit>().CollectedFruit();
                 
                 else if (manager.currentGamemode == GameManager.GameMode.PVP2P)
@@ -390,10 +390,12 @@ public class Player : MonoBehaviour
                     else if (manager.currentGamemode == GameManager.GameMode.TimeTrial)
                     {
                         manager.timeTrialPelletCount++;
+                        manager.eatenPellets++;
 
                         if (manager.timeTrialPelletCount >= manager.pelletsToAddTime)
                         {
-                            
+                            manager.AddTimeTrialTime("pellet");
+                            manager.timeTrialPelletCount = 0;
                         }
                     }
                 }
@@ -403,9 +405,13 @@ public class Player : MonoBehaviour
                     manager.p2Score += pellet.GetComponent<Node>().scoreValue;
                     manager.p2EatenPellets[manager.currentActIndex]++;
                 }
-                
-                manager.pelletFruitCounter++;
-                manager.CheckToAppearFruit();
+
+                if (manager.currentGamemode != GameManager.GameMode.TimeTrial)
+                {
+                    manager.pelletFruitCounter++;
+                    manager.CheckToAppearFruit();
+                }
+
                 manager.CheckForSirenChange();
                 source.PlayOneShot(_munch ? munchSFX[1] : munchSFX[0]);
                 _munch = !_munch;
@@ -434,9 +440,15 @@ public class Player : MonoBehaviour
                     manager.p2EatenPellets[manager.currentActIndex]++;
                 }
 
-                manager.pelletFruitCounter++;
                 source.PlayOneShot(superPelletEat);
-                manager.CheckToAppearFruit();
+                manager.AddTimeTrialTime("superpellet");
+
+                if (manager.currentGamemode != GameManager.GameMode.TimeTrial)
+                {
+                    manager.pelletFruitCounter++;
+                    manager.CheckToAppearFruit();
+                }
+
                 manager.CheckForSirenChange();
                 manager.TriggerSuperPellet();
             }

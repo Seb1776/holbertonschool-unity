@@ -263,6 +263,9 @@ public class Enemy : MonoBehaviour
             currentMoveSpeed = consumedMoveSpeed;
             StartCoroutine(ConsumeGhostDelay(consumeSFX.length, manager.lastGhostScore));
             manager.lastGhostScore += manager.lastGhostScore;
+
+            if (manager.currentGamemode == GameManager.GameMode.TimeTrial)
+                manager.AddTimeTrialTime("ghost");
         }
 
         else if (eatedBy == manager.pacMan2)
