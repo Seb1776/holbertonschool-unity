@@ -301,19 +301,35 @@ public class Player : MonoBehaviour
 
         else
         {
-            Debug.Log(Gamepad.all[manager.controllerOneIndexToUse]);
+            if (playerNumber == PlayerNumber.PlayerOne)
+            {
+                if (Gamepad.all[manager.controllerOneIndexToUse].dpad.left.wasPressedThisFrame)
+                    ChangePosition(Vector2.left);
+                
+                else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.right.wasPressedThisFrame)
+                    ChangePosition(Vector2.right);
+                
+                else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.down.wasPressedThisFrame)
+                    ChangePosition(Vector2.down);
+                
+                else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.up.wasPressedThisFrame)
+                    ChangePosition(Vector2.up);
+            }
 
-            if (Gamepad.all[manager.controllerOneIndexToUse].dpad.left.wasPressedThisFrame)
-                ChangePosition(Vector2.left);
-            
-            else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.right.wasPressedThisFrame)
-                ChangePosition(Vector2.right);
-            
-            else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.down.wasPressedThisFrame)
-                ChangePosition(Vector2.down);
-            
-            else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.up.wasPressedThisFrame)
-                ChangePosition(Vector2.up);
+            else
+            {
+                if (Gamepad.all[manager.controllerTwoIndexToUse].dpad.left.wasPressedThisFrame)
+                    ChangePosition(Vector2.left);
+                
+                else if (Gamepad.all[manager.controllerTwoIndexToUse].dpad.right.wasPressedThisFrame)
+                    ChangePosition(Vector2.right);
+                
+                else if (Gamepad.all[manager.controllerTwoIndexToUse].dpad.down.wasPressedThisFrame)
+                    ChangePosition(Vector2.down);
+                
+                else if (Gamepad.all[manager.controllerTwoIndexToUse].dpad.up.wasPressedThisFrame)
+                    ChangePosition(Vector2.up);
+            }
         }
     }
 
@@ -364,13 +380,28 @@ public class Player : MonoBehaviour
                 if (playerNumber == PlayerNumber.PlayerOne)
                 {
                     manager.score += pellet.GetComponent<Node>().scoreValue;
-                    manager.eatenPellets++;
+
+                    if (manager.currentGamemode == GameManager.GameMode.Classic)
+                        manager.eatenPellets++;
+                    
+                    else if (manager.currentGamemode == GameManager.GameMode.PVP2P)
+                        manager.p1EatenPellets[manager.currentActIndex]++;
+                    
+                    else if (manager.currentGamemode == GameManager.GameMode.TimeTrial)
+                    {
+                        manager.timeTrialPelletCount++;
+
+                        if (manager.timeTrialPelletCount >= manager.pelletsToAddTime)
+                        {
+                            
+                        }
+                    }
                 }
                 
                 else
                 {
                     manager.p2Score += pellet.GetComponent<Node>().scoreValue;
-                    manager.p2EatenPellets++;
+                    manager.p2EatenPellets[manager.currentActIndex]++;
                 }
                 
                 manager.pelletFruitCounter++;
@@ -389,13 +420,18 @@ public class Player : MonoBehaviour
                 if (playerNumber == PlayerNumber.PlayerOne)
                 {
                     manager.score += pellet.GetComponent<Node>().scoreValue;
-                    manager.eatenPellets++;
+
+                    if (manager.currentGamemode == GameManager.GameMode.Classic || manager.currentGamemode == GameManager.GameMode.TimeTrial)
+                        manager.eatenPellets++;
+                    
+                    else
+                        manager.p1EatenPellets[manager.currentActIndex]++;
                 }
                 
                 else
                 {
                     manager.p2Score += pellet.GetComponent<Node>().scoreValue;
-                    manager.p2EatenPellets++;
+                    manager.p2EatenPellets[manager.currentActIndex]++;
                 }
 
                 manager.pelletFruitCounter++;

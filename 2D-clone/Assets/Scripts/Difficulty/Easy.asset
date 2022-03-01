@@ -34,7 +34,7 @@ MonoBehaviour:
     ghostConsumedSpeed: 8
   scatterModeTimes: 0c0000000c0000000a0000000a000000
   chaseModeTimes: 07000000070000000700000007000000
-  maxIterationModes: 5
+  maxIterationModes: 3
   superPelletMaxDuration: 8
   pacManSpeed: 6.5
   pacManStartingLives: 5

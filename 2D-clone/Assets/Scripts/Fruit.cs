@@ -19,10 +19,13 @@ public class Fruit : MonoBehaviour
     {
         manager.fruits[manager.fruitIndex].GetComponent<Animator>().ResetTrigger("lock");
         manager.fruits[manager.fruitIndex].GetComponent<Animator>().SetTrigger("collected");
+        manager.classicHUDWin[manager.currentActIndex].fruitActs[manager.fruitIndex].grayFruit.SetActive(false);
+        manager.classicHUDWin[manager.currentActIndex].fruitActs[manager.fruitIndex].colorFruit.SetActive(true);
+        manager.classicHUDWin[manager.currentActIndex].collectedFruits++;
         manager.fruitIndex++;
         manager.pelletFruitCounter = 0;
 
-        if (manager.fruitIndex >= manager.fruits.Length - 1)
+        if (manager.fruitIndex > manager.fruits.Length - 1)
             manager.ateAllFruits = true;
 
         manager.createdFruit = null;
@@ -36,22 +39,23 @@ public class Fruit : MonoBehaviour
         {
             manager.playerOneFruits[manager.fruitIndex].GetComponent<Animator>().ResetTrigger("lock");
             manager.playerOneFruits[manager.fruitIndex].GetComponent<Animator>().SetTrigger("collected");
+            manager.score += scoreValue;
         }
 
         else if (player == manager.pacMan2)
         {
             manager.playerTwoFruits[manager.fruitIndex].GetComponent<Animator>().ResetTrigger("lock");
             manager.playerTwoFruits[manager.fruitIndex].GetComponent<Animator>().SetTrigger("collected");
+            manager.p2Score += scoreValue;
         }
 
         manager.fruitIndex++;
         manager.pelletFruitCounter = 0;
 
-        if (manager.fruitIndex >= manager.playerOneFruits.Length - 1)
+        if (manager.fruitIndex > manager.playerOneFruits.Length - 1)
             manager.ateAllFruits = true;
         
         manager.createdFruit = null;
-        manager.score += scoreValue;
         Destroy(this.gameObject);
     }
 

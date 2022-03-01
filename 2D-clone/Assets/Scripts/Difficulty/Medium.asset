@@ -34,8 +34,8 @@ MonoBehaviour:
     ghostConsumedSpeed: 10
   scatterModeTimes: 0a0000000a0000000800000008000000
   chaseModeTimes: 0a0000000a0000000a0000000a000000
-  maxIterationModes: 5
+  maxIterationModes: 3
   superPelletMaxDuration: 7.5
   pacManSpeed: 7
-  pacManStartingLives: 99
+  pacManStartingLives: 3
   fruitLifeTime: 15

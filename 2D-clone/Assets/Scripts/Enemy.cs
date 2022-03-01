@@ -105,16 +105,16 @@ public class Enemy : MonoBehaviour
 
         if (manager.pacMan2 != null)
         {
-            if (manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>() != null)
+            if (manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled && !manager.pacMan.invul)
                 pacManRect = new Rect(manager.pacMan.transform.position, manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
             
-            if (manager.pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>() != null)
+            if (manager.pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled && !manager.pacMan2.invul)
                 pacMan2Rect = new Rect(manager.pacMan2.transform.position, manager.pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
 
             if (ghostRect.Overlaps(pacMan2Rect))
             {
                 if (ghostMode == GhostMode.Frightened)
-                    ConsumedGhost();
+                    ConsumedGhost(manager.pacMan2);
                 
                 else if ((ghostMode != GhostMode.Frightened && ghostMode != GhostMode.Consumed) && !manager.pacMan2.invul)
                 {
@@ -126,7 +126,7 @@ public class Enemy : MonoBehaviour
             if (ghostRect.Overlaps(pacManRect) && manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>() != null)
             {
                 if (ghostMode == GhostMode.Frightened)
-                    ConsumedGhost();
+                    ConsumedGhost(manager.pacMan);
                 
                 else if ((ghostMode != GhostMode.Frightened && ghostMode != GhostMode.Consumed) && !manager.pacMan.invul)
                 {
@@ -217,6 +217,13 @@ public class Enemy : MonoBehaviour
         manager.countTime = false;
         transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
         manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
+
+        if (manager.pacMan.invul)
+            manager.pacMan.transform.GetChild(1).gameObject.SetActive(false);
+        
+        if (manager.pacMan2 != null && manager.pacMan2.invul)
+            manager.pacMan2.transform.GetChild(1).gameObject.SetActive(false);
+
         if (manager.pacMan2 != null) manager.pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
         scoreConsumeText.text = ghostScore.ToString();
 
@@ -233,6 +240,12 @@ public class Enemy : MonoBehaviour
         transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
         manager.pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
         if (manager.pacMan2 != null) manager.pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
+
+        if (manager.pacMan.invul)
+            manager.pacMan.transform.GetChild(1).gameObject.SetActive(true);
+        
+        if (manager.pacMan2 != null && manager.pacMan2.invul)
+            manager.pacMan2.transform.GetChild(1).gameObject.SetActive(true);
 
         HandleAnimations();
     }

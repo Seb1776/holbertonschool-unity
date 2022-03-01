@@ -6,13 +6,12 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.DualShock;
-using XInputDotNetPure;
 using TMPro;
 
 public class GameManager : MonoBehaviour
 {
     public enum PlayerOneControls { Keyboard, Controller }
-    [Header ("Game")]
+    [Header ("Game - Classic")]
     public PlayerOneControls playerOneControls;
     public enum PlayerTwoControls { Keyboard, Controller }
     public int controllerOneIndexToUse;
@@ -20,13 +19,28 @@ public class GameManager : MonoBehaviour
     public int controllerTwoIndexToUse;
     public enum GameMode { Classic, PVP2P, COOP2P, GhostVPlayer, TimeTrial }
     public GameMode currentGamemode;
+    [Header ("Game - 2 Player PVP")]
+    public Color playerOneColor;
+    public Color playerTwoColor;
+    [Header ("Game - Time Trial")]
+    public float startingTime;
+    public int pelletsToAddTime;
+    public int timeTrialPelletCount;
+    public float pelletAddTimeValue;
+    public float superPelletAddTimeValue;
+    public float ghostAddTimeValue;
+    public float startingPacmanSpeed;
+    public float startingGhostsSpeed;
+    public float pacmanSpeedPercentageIncrement;
+    public float ghostSpeedPercentageIncrement;
     [Header ("Board")]
     public Node[] cornerNodes;
     public List<Node> allNodes;
     public static int boardWidth = 36, boardHeight = 36;
     public GameObject [,] boardObjects = new GameObject[boardWidth, boardHeight];
     public int score, eatenPellets, totalPellets, lastGhostScore = 200;
-    public int p2Score, p2EatenPellets, p2LastGhostScore = 200;
+    public int p2Score, p2LastGhostScore = 200;
+    public int[] p1EatenPellets, p2EatenPellets;
     public float[] pelletDivision;
     public Maze mazeData;
     public Player pacMan;
@@ -54,6 +68,10 @@ public class GameManager : MonoBehaviour
     public int consumedGhosts;
     public int ghostToConsume;
     public bool ateAllFruits;
+    [Header ("HUDS")]
+    public GameObject classicHUD;
+    public GameObject P2PVPHUD;
+    public GameObject timeTrialHUD;
     [Header ("UI")]
     public Animator[] fruits;
     public TMP_Text currentScore;
@@ -63,30 +81,39 @@ public class GameManager : MonoBehaviour
     public TMP_Text currentLives;
     public TMP_Text restartReadyText, restartPlayerText, difficultyName,
     currentPelletsText, totalPelletsText, act1TText, act2TText, act3TText,
-    totalTimeText, totalScoreText, actDeathText;
+    totalTimeText, totalScoreText, _totalScoreText, _totalTime, actDeathText;
     public string ghostKilledName;
     public Animator gameOverPanel;
+    public GameObject classicGameOver;
+    public Animator winPanel;
+    public GameObject classicWin, pvp2PWin;
     public GameObject[] killedGhosts;
+    public ClassicHUDWin[] classicHUDWin;
+    public TMP_Text[] collectedFruitsT, multipliedFruitScore; 
     [Header ("2 Player PVP UI")]
     public Slider playerOneProgress;
     public Slider playerTwoProgress;
     public GameObject playerOneCrown, playerTwoCrown;
-    public TMP_Text playerOneCurrentPellets, playerTwoCurrentPellets;
+    public TMP_Text playerOneCurrentPellets, playerTwoCurrentPellets, playerNWinText, p1ScoreText, p2ScoreText,
+    p1PelletsText, p2PelletsText, p1ScoreT, p2ScoreT, playerOneDraw, playerTwoDraw;
     public TMP_Text[] totalLevelPelletsText;
     public Animator[] playerOneFruits, playerTwoFruits;
+    public Image playerOneSliderPac, playerTwoSliderPac, playerOneSliderFill, playerTwoSliderFill,
+    pacOneWin, pacTwoWin;
+    public GameObject someoneWonPodium;
+    public GameObject drawPodium;
+    [Header ("Time Trial UI")]
+    public Slider timeRemainingSlider;
+    public TMP_Text timeRemainingText;
+    public GameObject pelletAddTime, superPelletAddTime, ghostAddTime;
 
     [Header ("Controllers")]
     public Player player;
-    public Color PS4BarLightColor;
     public float currentAnimSpeed;
     public float superPelletTime;
     public Gamepad[] connectedGamepads;
     public List<DualShock4GamepadHID> ps4Gamepads = new List<DualShock4GamepadHID>();
     public Gamepad playerOneGamepad, playerTwoGamepad;
-
-    XInputDotNetPure.PlayerIndex playerOneXIndex;
-    XInputDotNetPure.PlayerIndex playerTwoXIndex;
-
     public GameObject createdFruit;
     public int fruitIndex;
     int totalLevelPellets;
@@ -94,9 +121,12 @@ public class GameManager : MonoBehaviour
     bool winAct;
     bool startDeath;
     bool inSuperPellet;
+    bool canTimeTrial;
     bool playGameOverMusic;
     bool _playedGO;
     bool on2PLoose;
+    Player winner;
+    float currentTimeTrialTime;
     float timeAct1, timeAct2, timeAct3;
     float controllerRumbleTime, currentControllerRumble;
     Vector2 _rumbleForce;
@@ -140,7 +170,30 @@ public class GameManager : MonoBehaviour
         LoadDifficulty();
 
         if (currentGamemode == GameMode.PVP2P)
+        {
             SetUpPVP2P();
+            P2PVPHUD.SetActive(true);
+        }
+
+        else if (currentGamemode == GameMode.Classic)
+            classicHUD.SetActive(true);
+        
+        else if (currentGamemode == GameMode.TimeTrial)
+        {
+            SetUpTimeTrial();
+            timeTrialHUD.SetActive(true);
+        }
+        
+        else if (currentGamemode == GameMode.Classic || currentGamemode == GameMode.TimeTrial)
+        {
+            pacMan2 = null;
+
+            if (currentGamemode == GameMode.Classic)
+                classicHUD.SetActive(true);
+            
+            else if (currentGamemode == GameMode.TimeTrial)
+                timeTrialHUD.SetActive(true);
+        }
         
         StartCoroutine(StartCutscene(introMusic.length));
     }
@@ -156,10 +209,12 @@ public class GameManager : MonoBehaviour
             HandleTimer();
 
         CheckForWinGame();
-        PS4LightBarManager();
 
         if (currentGamemode == GameMode.PVP2P)
             CheckForPVP2PSpecifics();
+        
+        else if (currentGamemode == GameMode.TimeTrial)
+            CheckForTimeTrialSpecifics();
 
         if ((currentGamemode != GameMode.Classic || currentGamemode != GameMode.TimeTrial) && on2PLoose)
         {
@@ -238,7 +293,7 @@ public class GameManager : MonoBehaviour
 
             else if (playerOneControls == PlayerOneControls.Controller && playerTwoControls == PlayerTwoControls.Keyboard)
             {
-                if (CheckForEnoughControllers(1))
+                if (!CheckForEnoughControllers(1))
                 {
                     Debug.Log("There are no controllers connected, assigning keyboard to player 1");
                     playerOneControls = PlayerOneControls.Keyboard;
@@ -246,7 +301,7 @@ public class GameManager : MonoBehaviour
 
                 else
                 {
-                    Debug.Log("There is one controller connected");
+                    Debug.Log("There is at least one controller connected");
 
                     if (controllerOneIndexToUse > Gamepad.all.Count - 1)
                     {
@@ -256,6 +311,9 @@ public class GameManager : MonoBehaviour
 
                     else
                         playerOneGamepad = Gamepad.all[controllerOneIndexToUse];
+                    
+                    playerOneControls = PlayerOneControls.Controller;
+                    pacMan.playerController = Player.PlayerController.Controller;
                 }
             }
 
@@ -279,6 +337,9 @@ public class GameManager : MonoBehaviour
 
                     else
                         playerTwoGamepad = Gamepad.all[controllerTwoIndexToUse];
+
+                    playerTwoControls = PlayerTwoControls.Keyboard;
+                    pacMan2.playerController = Player.PlayerController.Controller;
                 }
             }
         }
@@ -328,9 +389,19 @@ public class GameManager : MonoBehaviour
 
     void SetUpPVP2P()
     {
+        p1EatenPellets = new int[mazeData.mazeActs.Length];
+        p2EatenPellets = new int[mazeData.mazeActs.Length];
+
         totalLevelPellets = totalPellets * mazeData.mazeActs.Length;
         playerOneProgress.maxValue = totalLevelPellets;
         playerTwoProgress.maxValue = totalLevelPellets;
+
+        pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().color = playerOneColor;
+        pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().color = playerTwoColor;
+        pacMan.transform.GetChild(1).GetComponent<SpriteRenderer>().color = playerOneColor;
+        pacMan2.transform.GetChild(1).GetComponent<SpriteRenderer>().color = playerTwoColor;
+        playerOneSliderPac.color = playerOneSliderFill.color = pacOneWin.color = p1ScoreText.color =  p1PelletsText.color = playerOneColor;
+        playerTwoSliderPac.color = playerTwoSliderFill.color = pacTwoWin.color = p2ScoreText.color =  p2PelletsText.color = playerTwoColor;
 
         for (int i = 0; i < playerOneFruits.Length; i++)
         {
@@ -351,36 +422,90 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    void SetUpTimeTrial()
+    {
+        currentTimeTrialTime = startingTime;
+        timeRemainingSlider.maxValue = startingTime;
+    }
+
+    public void AddTimeTrialTime(string context)
+    {
+        switch (context)
+        {
+            case "pellet":
+                Instantiate();
+            break;
+
+            case "superpellet":
+                Instantiate();
+            break;
+
+            case "ghost":
+                Instantiate();
+            break;
+        }
+    }
+
     void CheckForPVP2PSpecifics()
     {
-        if (score > p2Score && !playerOneCrown.activeSelf)
+        if (GetAllPelletsOf2Player(1) > GetAllPelletsOf2Player(2) && !playerOneCrown.activeSelf)
         {
             playerOneCrown.SetActive(true);
             playerTwoCrown.SetActive(false);
         }
         
-        else if (p2Score > score && !playerTwoCrown.activeSelf)
+        else if (GetAllPelletsOf2Player(2) > GetAllPelletsOf2Player(1) && !playerTwoCrown.activeSelf)
         {
             playerOneCrown.SetActive(false);
             playerTwoCrown.SetActive(true);
         }
 
-        else if ((score == p2Score) && (playerTwoCrown.activeSelf || playerOneCrown.activeSelf))
+        else if ((GetAllPelletsOf2Player(1) == GetAllPelletsOf2Player(2)) && (playerTwoCrown.activeSelf || playerOneCrown.activeSelf))
         {
             playerOneCrown.SetActive(false);
             playerTwoCrown.SetActive(false);
         }
 
-        playerOneCurrentPellets.text = eatenPellets.ToString("D4");
-        playerTwoCurrentPellets.text = p2EatenPellets.ToString("D4");
+        playerOneCurrentPellets.text = (p1EatenPellets[0] + p1EatenPellets[1] + p1EatenPellets[2]).ToString("D4");
+        playerTwoCurrentPellets.text = (p2EatenPellets[0] + p2EatenPellets[1] + p2EatenPellets[2]).ToString("D4");
 
-        playerOneProgress.value = eatenPellets;
-        playerTwoProgress.value = p2EatenPellets;
+        playerOneProgress.value = p1EatenPellets[0] + p1EatenPellets[1] + p1EatenPellets[2];
+        playerTwoProgress.value = p2EatenPellets[0] + p2EatenPellets[1] + p2EatenPellets[2];
 
-        combinedPellets = eatenPellets + p2EatenPellets;
+        p1ScoreT.text = score.ToString("D6");
+        p2ScoreT.text = p2Score.ToString("D6");
+
+        if (currentActIndex <= mazeData.mazeActs.Length - 1)
+            combinedPellets = p1EatenPellets[currentActIndex] + p2EatenPellets[currentActIndex];
 
         foreach (TMP_Text t in totalLevelPelletsText)
             t.text = "/ " + totalLevelPellets.ToString("D4");
+    }
+
+    void CheckForTimeTrialSpecifics()
+    {   
+        if (canTimeTrial)
+            if (currentTimeTrialTime > 0 && currentTimeTrialTime <= startingTime)
+                currentTimeTrialTime -= Time.deltaTime;
+        
+        timeRemainingSlider.value = currentTimeTrialTime;
+
+        timeRemainingText.text = TimeSpan.FromSeconds(currentTimeTrialTime).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(currentTimeTrialTime).Seconds.ToString("D2") + ":" +
+                        TimeSpan.FromSeconds(currentTimeTrialTime).Milliseconds.ToString();
+    }
+
+    int GetAllPelletsOf2Player(int player)
+    {
+        switch (player)
+        {
+            case 1:
+                return p1EatenPellets[0] + p1EatenPellets[1] + p1EatenPellets[2];
+
+            case 2:
+                return p2EatenPellets[0] + p2EatenPellets[1] + p2EatenPellets[2];
+        }
+
+        return -1;
     }
 
     public bool CheckForEnoughControllers(int controllerAmount)
@@ -434,6 +559,16 @@ public class GameManager : MonoBehaviour
                         {
                             c.GetComponent<SpriteRenderer>().sprite = roundFruits[i].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite;
                         }
+                    }
+                }
+
+                for (int i = 0 ; i < mazeData.mazeActs.Length; i++)
+                {
+                    for (int j = 0; j < mazeData.mazeActs[i].fruitsToAppear.Count; j++)
+                    {
+                        classicHUDWin[i].fruitActs[j].colorFruit.GetComponent<SpriteRenderer>().sprite = mazeData.mazeActs[i].fruitsToAppear[j].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+                        classicHUDWin[i].fruitActs[j].grayFruit.GetComponent<SpriteRenderer>().sprite = mazeData.mazeActs[i].fruitsToAppear[j].transform.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+                        classicHUDWin[i].fruitActs[j].colorFruit.SetActive(false);
                     }
                 }
             }
@@ -499,13 +634,13 @@ public class GameManager : MonoBehaviour
         musicSource.PlayOneShot(introMusic);
         pacMan.canMove = false;
 
-        if (currentGamemode != GameMode.Classic || currentGamemode != GameMode.TimeTrial || currentGamemode != GameMode.GhostVPlayer)
+        if (pacMan2 != null)
             pacMan2.canMove = false;
 
         blinky.canMove = pinky.canMove = inky.canMove = clyde.canMove = false;
         pacMan.GetComponent<Animator>().SetBool("moving", false);
 
-        if (currentGamemode != GameMode.Classic || currentGamemode != GameMode.TimeTrial || currentGamemode != GameMode.GhostVPlayer)
+        if (pacMan2 != null)
             pacMan2.GetComponent<Animator>().SetBool("moving", false);
 
         yield return new WaitForSeconds(delay);
@@ -513,7 +648,7 @@ public class GameManager : MonoBehaviour
         countTime = true;
         pacMan.canMove = true;
 
-        if (currentGamemode != GameMode.Classic || currentGamemode != GameMode.TimeTrial || currentGamemode != GameMode.GhostVPlayer)
+        if (pacMan2 != null)
             pacMan2.canMove = true;
 
         blinky.canMove = pinky.canMove = inky.canMove = clyde.canMove = true;
@@ -529,6 +664,9 @@ public class GameManager : MonoBehaviour
             musicSource.clip = customMusic;
             musicSource.Play();
         }
+
+        if (currentGamemode == GameMode.TimeTrial)
+            canTimeTrial = true;
 
         musicSource.loop = true;
     }
@@ -730,6 +868,9 @@ public class GameManager : MonoBehaviour
 
                         act1TText.text = TimeSpan.FromSeconds(act1T).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(act1T).Seconds.ToString("D2") + ":" +
                             TimeSpan.FromSeconds(act1T).Milliseconds.ToString();
+                        
+                        classicHUDWin[currentActIndex].actTime.text = TimeSpan.FromSeconds(act1T).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(act1T).Seconds.ToString("D2") + ":" +
+                            TimeSpan.FromSeconds(act1T).Milliseconds.ToString();
                     break;
 
                     case 1:
@@ -737,12 +878,18 @@ public class GameManager : MonoBehaviour
 
                         act2TText.text = TimeSpan.FromSeconds(act2T).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(act2T).Seconds.ToString("D2") + ":" +
                             TimeSpan.FromSeconds(act2T).Milliseconds.ToString();
+
+                        classicHUDWin[currentActIndex].actTime.text = TimeSpan.FromSeconds(act2T).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(act2T).Seconds.ToString("D2") + ":" +
+                            TimeSpan.FromSeconds(act2T).Milliseconds.ToString();
                     break;
 
                     case 2:
                         act3T = timeAct3 = timeSpent;
 
                         act3TText.text = TimeSpan.FromSeconds(act3T).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(act3T).Seconds.ToString("D2") + ":" +
+                            TimeSpan.FromSeconds(act3T).Milliseconds.ToString();
+                        
+                        classicHUDWin[currentActIndex].actTime.text = TimeSpan.FromSeconds(act3T).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(act3T).Seconds.ToString("D2") + ":" +
                             TimeSpan.FromSeconds(act3T).Milliseconds.ToString();
                     break;
                 }
@@ -768,7 +915,18 @@ public class GameManager : MonoBehaviour
                 currentActIndex++;
 
                 if (currentActIndex > mazeData.mazeActs.Length - 1)
+                {
+                    if (score > p2Score)
+                        winner = pacMan;
+                    
+                    else if (p2Score > score)
+                        winner = pacMan2;
+                    
+                    else
+                        winner = null;
+
                     StartCoroutine(PVP2PWinWin());
+                }
                 
                 else
                     StartCoroutine(PVP2PWinActAnimation());
@@ -778,6 +936,77 @@ public class GameManager : MonoBehaviour
 
     IEnumerator PVP2PWinWin()
     {
+        if (winner == pacMan)
+        {
+            someoneWonPodium.SetActive(true);
+            drawPodium.SetActive(false);
+
+            playerNWinText.text = "PLAYER 1 WINS!";
+            pacOneWin.color = playerOneColor;
+            pacTwoWin.color = playerTwoColor;
+        }
+        
+        else if (winner == pacMan2)
+        {
+            someoneWonPodium.SetActive(true);
+            drawPodium.SetActive(false);
+
+            playerNWinText.text = "PLAYER 2 WINS";
+            pacOneWin.color = playerTwoColor;
+            pacTwoWin.color = playerOneColor;
+        }
+
+        else
+        {
+            playerNWinText.text = "DRAW!";
+            someoneWonPodium.SetActive(false);
+            drawPodium.SetActive(true);
+
+            if (UnityEngine.Random.value > .5f)
+            {
+                pacOneWin.color = playerOneDraw.color = playerOneColor;
+                pacTwoWin.color = playerTwoDraw.color = playerTwoColor;
+            }
+
+            else
+            {
+                pacOneWin.color = playerOneDraw.color = playerTwoColor;
+                pacTwoWin.color =  playerTwoDraw.color = playerOneColor;
+            }
+        }
+
+        winPanel.SetTrigger("win");
+        pvp2PWin.SetActive(true);
+        pacMan.canMove = pacMan2.canMove = blinky.canMove = inky.canMove = pinky.canMove = clyde.canMove = false;
+        pacMan.GetComponent<Animator>().SetBool("moving", false);
+        pacMan2.GetComponent<Animator>().SetBool("moving", false);
+        musicSource.Stop();
+        musicSource.PlayOneShot(winMusic);
+        fruitIndex = 0;
+        ateAllFruits = false;
+        lastGhostScore = 200;
+        p2LastGhostScore = 200;
+        currentSirenIndex = 0;
+        pelletFruitCounter = 0;
+
+        if (createdFruit != null)
+            createdFruit.GetComponent<Fruit>().InstaDestroyFruit();
+
+        if (inSuperPellet)
+        {
+            superPelletTimer = 0f;
+            inSuperPellet = false;
+        }
+
+        blinky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        inky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        pinky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        clyde.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = 
+        pacMan.transform.GetChild(1).GetComponent<SpriteRenderer>().enabled =
+        pacMan2.transform.GetChild(1).GetComponent<SpriteRenderer>().enabled = false;
+
         yield return null;
     }
 
@@ -811,6 +1040,12 @@ public class GameManager : MonoBehaviour
         clyde.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
         pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
         pacMan2.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
+
+        if (pacMan.invul)
+            pacMan.invul = false;
+        
+        if (pacMan2.invul)
+            pacMan2.invul = false;
 
         musicSource.Stop();
         musicSource.PlayOneShot(winMusic);
@@ -1047,6 +1282,62 @@ public class GameManager : MonoBehaviour
 
     IEnumerator WinWin()
     {
+        int[] multipliedScores = new int[3];
+        int _tmpTotalScore = 0;
+        multipliedScores[0] = score;
+        multipliedScores[1] = score;
+        multipliedScores[2] = score;
+
+        for (int i = 0; i < classicHUDWin.Length; i++)
+        {   
+            if (classicHUDWin[i].collectedFruits > 0)
+                multipliedScores[i] *= classicHUDWin[i].collectedFruits;
+            
+            else
+                multipliedScores[i] *= 1;
+
+            multipliedFruitScore[i].text = score.ToString("D6") + " X " + classicHUDWin[i].collectedFruits.ToString() + " = " + multipliedScores[i].ToString("D6");
+            _tmpTotalScore += multipliedScores[i];
+        }
+
+        Debug.Log(_tmpTotalScore);
+
+        _totalScoreText.text = _tmpTotalScore.ToString("D7");
+        float _totTime = timeAct1 + timeAct2 + timeAct3;
+        _totalTime.text = TimeSpan.FromSeconds(_totTime).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(_totTime).Seconds.ToString("D2") + ":" +
+                        TimeSpan.FromSeconds(_totTime).Milliseconds.ToString();
+
+        pvp2PWin.SetActive(false);
+        classicWin.SetActive(true);
+
+        winPanel.SetTrigger("win");
+        pacMan.canMove = blinky.canMove = inky.canMove = pinky.canMove = clyde.canMove = false;
+        pacMan.GetComponent<Animator>().SetBool("moving", false);
+        musicSource.Stop();
+        musicSource.PlayOneShot(winMusic);
+        fruitIndex = 0;
+        ateAllFruits = false;
+        lastGhostScore = 200;
+        p2LastGhostScore = 200;
+        currentSirenIndex = 0;
+        pelletFruitCounter = 0;
+
+        if (createdFruit != null)
+            createdFruit.GetComponent<Fruit>().InstaDestroyFruit();
+
+        if (inSuperPellet)
+        {
+            superPelletTimer = 0f;
+            inSuperPellet = false;
+        }
+
+        blinky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        inky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        pinky.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        clyde.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
+        pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = 
+        pacMan.transform.GetChild(1).GetComponent<SpriteRenderer>().enabled = false;
+
         yield return null;
     }
 
@@ -1105,7 +1396,7 @@ public class GameManager : MonoBehaviour
         pacMan.canMove = blinky.canMove = inky.canMove = pinky.canMove = clyde.canMove = false;
         pacMan.GetComponent<Animator>().SetBool("moving", false);
 
-        if (currentGamemode != GameMode.Classic || currentGamemode != GameMode.TimeTrial || currentGamemode != GameMode.GhostVPlayer)
+        if (pacMan2 != null)
         {
             pacMan2.canMove = false;
             pacMan2.GetComponent<Animator>().SetBool("moving", false);
@@ -1119,21 +1410,19 @@ public class GameManager : MonoBehaviour
             inSuperPellet = false;
         }
 
-        if (currentGamemode != GameMode.Classic && currentGamemode != GameMode.TimeTrial && currentGamemode != GameMode.GhostVPlayer)
+        if (currentGamemode == GameMode.PVP2P || currentGamemode == GameMode.COOP2P)
         {
             on2PLoose = true;
             StartCoroutine(ProcessAfterDeath2Player(2f, pacManTo));
         }
 
-        else if (currentGamemode == GameMode.PVP2P || currentGamemode == GameMode.COOP2P)
+        else if (currentGamemode == GameMode.Classic || currentGamemode == GameMode.TimeTrial)
             StartCoroutine(ProcessAfterDeath(2f));
     }
 
     IEnumerator ProcessAfterDeath2Player(float delay, Player pacManTo)
     {
         yield return new WaitForSeconds(2f);
-
-        pacManTo.pacManLives--;
 
         if (pacManTo.pacManLives <= 0)
         {
@@ -1180,6 +1469,8 @@ public class GameManager : MonoBehaviour
 
     IEnumerator ReAppearPacMan(float delay, Player pacManTo)
     {
+        yield return new WaitForSeconds(pacManDeath.length - 0.1f);
+        pacManTo.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = false;
         yield return new WaitForSeconds(delay);
         pacManTo.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
         pacManTo.RestartWithInvul();
@@ -1427,18 +1718,18 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
     }
+}
 
-    void PS4LightBarManager()
-    {   
-        if (ps4Gamepads.Count > 0)
-        {
-            animator.speed = currentAnimSpeed;
+[System.Serializable]
+public class ClassicHUDWin
+{
+    public ClassicHUDFruit[] fruitActs;
+    public TMP_Text actTime;
+    public int collectedFruits;
+}
 
-            foreach (DualShock4GamepadHID ps4 in ps4Gamepads)
-            {
-                if (ps4 != null)
-                    ps4.SetLightBarColor(PS4BarLightColor);
-            }
-        }
-    }
+[System.Serializable]
+public class ClassicHUDFruit
+{
+    public GameObject colorFruit, grayFruit;
 }
