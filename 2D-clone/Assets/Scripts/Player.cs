@@ -15,6 +15,9 @@ public class Player : MonoBehaviour
     public PlayerController playerController;
     public float moveSpeed;
     public bool canMove = true;
+    public bool isGhost;
+    public bool canControl = true;
+    public bool invertedControls = false;
     public Node.ValidDirections startingDirection;
     public Vector2 orientation;
     public Node startingNode;
@@ -23,10 +26,30 @@ public class Player : MonoBehaviour
     [Header("SFX")]
     public AudioClip[] munchSFX;
     public AudioClip superPelletEat;
-    [Header ("PS4 LightBar Animation")]
-    public bool overrideAnimSpeed;
-    public bool useController;
-
+    [Header ("Playable Ghost")]
+    public float rechargeTimeInvertAbility;
+    [SerializeField] float currentTimeInvertAbility;
+    public bool canInvertAbility;
+    [SerializeField] bool invertAbilityActivated;
+    public float invertAbilityDuration;
+    [SerializeField] float currentInvertAbilityDuration;
+    public float rechargeTimeUncontrollableAbility;
+    [SerializeField] float currentTimeUncontrollableAbility;
+    public bool canUncontrollableAbility;
+    [SerializeField] bool uncontrollableAbilityActivated;
+    public float uncontrollableAbilityDuration;
+    [SerializeField] float currentUncontrollableAbilityDuration;
+    public float rechargeTimeCantMoveAbility;
+    [SerializeField] float currentTimeCantMoveAbility;
+    public bool canCantMoveAbility;
+    [SerializeField] bool cantMoveAbilityActivated;
+    public float cantMoveAbilityDuration;
+    [SerializeField] float currentCantMoveAbilityDuration;
+    public RuntimeAnimatorController playerGhostUp;
+    public RuntimeAnimatorController playerGhostDown, playerGhostRight, playerGhostLeft,
+    playerGhostFright, playerGhostFrightEnd;
+    public enum PlayableGhostState { Normal, Frightened, Consumed }
+    public PlayableGhostState playableGhostState;
     AudioSource source;
     bool _munch;
     public bool invul;
@@ -39,6 +62,7 @@ public class Player : MonoBehaviour
     InputMaster inputActions;
     Vector2 playerInputVector, nextDirection, gamepadAxis;
     Animator animator;
+    Animator ghostPlayerAnim;
     
     void Awake()
     {
@@ -47,6 +71,9 @@ public class Player : MonoBehaviour
         pacmanSprite = transform.GetChild(0).GetComponent<SpriteRenderer>();
         source = GetComponent<AudioSource>();
         controllerAvailable = Gamepad.all.Count > 0;
+
+        if (playerNumber == PlayerNumber.PlayerTwo && manager.currentGamemode == GameManager.GameMode.GhostVPlayer)
+            ghostPlayerAnim = transform.GetChild(2).GetComponent<Animator>();
 
         inputActions = new InputMaster();
         inputActions.Enable();
@@ -65,23 +92,35 @@ public class Player : MonoBehaviour
         playerInputVector = currentNode.ConvertDirectionFromEnum(startingDirection);
         orientation = currentNode.ConvertDirectionFromEnum(startingDirection);
         ChangePosition(playerInputVector);
-
-        if (!controllerAvailable && useController)
-            useController = false;
     }
 
     void Update()
     {   
         if (canMove)
         {
-            HandlePS4LightBar();
             Move();
-            UpdateRotation();
-            CheckInput();
-            HandleAnimations();
-            EatPellet();
 
-            if (manager.createdFruit != null)
+            if (canControl)
+                CheckInput();
+            
+            else
+                ChangePosition(Vector2.zero);
+
+            HandleAnimations();
+
+            if (!isGhost)
+            {
+                EatPellet();
+                UpdateRotation();
+            }
+
+            else
+            {
+                CheckPlayerGhostCollisions();
+                HandlePlayerGhostAbility();
+            }
+
+            if (manager.createdFruit != null && !isGhost)
                 CheckCollisions();
             
             if (countInvul)
@@ -133,9 +172,156 @@ public class Player : MonoBehaviour
         }
     }
 
-    void HandleAnimations()
+    void CheckPlayerGhostCollisions()
     {
-        animator.SetBool("moving", (playerInputVector == Vector2.zero) ? false: true);
+        if (transform.GetChild(2).GetChild(0).GetComponent<SpriteRenderer>().enabled)
+        {
+            Rect pacmanPlayerRect = new Rect(transform.position, transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
+            Rect ghostPlayerRect = new Rect(transform.position, transform.GetChild(2).GetChild(0).GetComponent<SpriteRenderer>().sprite.bounds.size / 16f);
+
+            if (ghostPlayerRect.Overlaps(pacmanPlayerRect))
+            {
+
+            }
+        }
+    }
+
+    void HandlePlayerGhostAbility()
+    {
+        if (currentTimeInvertAbility >= rechargeTimeInvertAbility && !canInvertAbility)
+        {
+            canInvertAbility = true;
+            currentTimeInvertAbility = 0f;
+        }
+
+        else if (currentTimeInvertAbility < rechargeTimeInvertAbility && !canInvertAbility)
+            currentTimeInvertAbility += Time.deltaTime;
+        
+        if (canInvertAbility && invertAbilityActivated)
+        {
+            if (currentInvertAbilityDuration >= invertAbilityDuration)
+            {
+                canInvertAbility = false;
+                invertAbilityActivated = false;
+                currentInvertAbilityDuration = 0f;
+                manager.pacMan.InvertPlayerDirections(false);
+            }
+
+            else
+                currentInvertAbilityDuration += Time.deltaTime;
+        }
+        
+        if (currentTimeCantMoveAbility >= rechargeTimeCantMoveAbility && !canCantMoveAbility)
+        {
+            canCantMoveAbility = true;
+            currentTimeCantMoveAbility = 0f;
+        }
+
+        else if (currentTimeCantMoveAbility < rechargeTimeCantMoveAbility && !canCantMoveAbility)
+            currentTimeCantMoveAbility += Time.deltaTime;
+        
+        if (canCantMoveAbility && cantMoveAbilityActivated)
+        {
+            if (currentCantMoveAbilityDuration >= cantMoveAbilityDuration)
+            {
+                canCantMoveAbility = false;
+                cantMoveAbilityActivated = false;
+                currentCantMoveAbilityDuration = 0f;
+                manager.pacMan.StopPlayerMovement(false);
+            }
+
+            else
+                currentCantMoveAbilityDuration += Time.deltaTime;
+        }
+        
+        if (currentTimeUncontrollableAbility >= rechargeTimeUncontrollableAbility && !canUncontrollableAbility)
+        {
+            canUncontrollableAbility = true;
+            currentTimeUncontrollableAbility = 0f;
+        }
+
+        else if (currentTimeUncontrollableAbility < rechargeTimeUncontrollableAbility && !canUncontrollableAbility)
+            currentTimeUncontrollableAbility += Time.deltaTime;
+        
+        if (canUncontrollableAbility && uncontrollableAbilityActivated)
+        {
+            if (currentUncontrollableAbilityDuration >= uncontrollableAbilityDuration)
+            {
+                canUncontrollableAbility = false;
+                uncontrollableAbilityActivated = false;
+                currentUncontrollableAbilityDuration = 0f;
+                manager.pacMan.UncontrollablePlayer(false);
+            }
+
+            else
+                currentUncontrollableAbilityDuration += Time.deltaTime;
+        }
+        
+        if (Keyboard.current.gKey.wasPressedThisFrame && canInvertAbility)
+        {
+            manager.pacMan.InvertPlayerDirections(true);
+            invertAbilityActivated = true;
+        }
+
+        if (Keyboard.current.hKey.wasPressedThisFrame && canCantMoveAbility)
+        {
+            manager.pacMan.StopPlayerMovement(true);
+            cantMoveAbilityActivated = true;
+        }
+
+        if (Keyboard.current.jKey.wasPressedThisFrame && canUncontrollableAbility)
+        {
+            manager.pacMan.UncontrollablePlayer(true);
+            uncontrollableAbilityActivated = true;
+        }
+    }
+
+    public void InvertPlayerDirections(bool invert)
+    {
+        if (playerInputVector != Vector2.zero)
+        {
+            if (targetNode != currentNode && targetNode != null)
+            {
+                playerInputVector *= -1f;
+
+                Node tempNode = targetNode;
+                targetNode = previousNode;
+                previousNode = tempNode;
+            }
+        }
+
+        invertedControls = invert;
+    }
+
+    public void StopPlayerMovement(bool _canMove)
+    {
+        canMove = _canMove;
+    }
+
+    public void UncontrollablePlayer(bool _canControl)
+    {
+        canControl = _canControl;
+    }
+
+    void HandleAnimations()
+    {   
+        if (!isGhost)
+            animator.SetBool("moving", (playerInputVector == Vector2.zero) ? false: true);
+        
+        else
+        {
+            if (playerInputVector == Vector2.up)
+                ghostPlayerAnim.runtimeAnimatorController = playerGhostUp;
+
+            else if (playerInputVector == Vector2.down)
+                ghostPlayerAnim.runtimeAnimatorController = playerGhostDown;
+
+            else if (playerInputVector == Vector2.right)
+                ghostPlayerAnim.runtimeAnimatorController = playerGhostRight;
+
+            else if (playerInputVector == Vector2.left)
+                ghostPlayerAnim.runtimeAnimatorController = playerGhostLeft;
+        }
     }
 
     void Move()
@@ -196,16 +382,85 @@ public class Player : MonoBehaviour
         
         if (currentNode != null)
         {
-            Node moveToNode = CanMove(d);
-        
-            if (moveToNode != null)
+            if (canControl)
             {
-                playerInputVector = d;
-                targetNode = moveToNode;
-                previousNode = currentNode;
-                currentNode = null;
+                Node moveToNode = CanMove(d);
+
+                if (moveToNode != null)
+                {
+                    playerInputVector = d;
+                    targetNode = moveToNode;
+                    previousNode = currentNode;
+                    currentNode = null;
+                }
+            }
+            
+            else
+            {
+                Vector2 _targetNode = GetRandomTile();
+                Node moveToNode = null;
+
+                Node[] foundNodes = new Node[4];
+                Vector2[] foundNodesDirection = new Vector2[4];
+
+                int nodeCounter = 0;
+
+                for (int i = 0; i < currentNode.neighbours.Count; i++)
+                {
+                    if (currentNode.ConvertDirectionFromEnum(currentNode.validDirections[i]) != playerInputVector * -1 || GetOpositeDirectionIfCorner(currentNode))
+                    {
+                        foundNodes[nodeCounter] = currentNode.neighbours[i];
+                        foundNodesDirection[nodeCounter] = currentNode.ConvertDirectionFromEnum(currentNode.validDirections[i]);
+                        nodeCounter++;
+                    }
+                }
+
+                if (foundNodes.Length == 1)
+                {
+                    moveToNode = foundNodes[0];
+                    playerInputVector = foundNodesDirection[0];
+                }
+
+                else if (foundNodes.Length > 1)
+                {
+                    float leastDistance = Mathf.Infinity;
+
+                    for (int i = 0; i < foundNodes.Length; i++)
+                    {
+                        if (foundNodesDirection[i] != Vector2.zero)
+                        {
+                            float distance = Vector2.Distance(foundNodes[i].transform.position, _targetNode);
+
+                            if (distance < leastDistance)
+                            {
+                                leastDistance = distance;
+                                moveToNode = foundNodes[i];
+                                playerInputVector = foundNodesDirection[i];
+                            }
+                        }
+                    }
+                }
+
+                if (moveToNode != null)
+                {
+                    playerInputVector = d;
+                    targetNode = moveToNode;
+                    previousNode = currentNode;
+                    currentNode = null;
+                }
             }
         }
+    }
+
+    bool GetOpositeDirectionIfCorner(Node _node)
+    {
+        if (_node.validDirections.Length == 1)
+        {
+            if (_node.ConvertDirectionFromEnum(_node.validDirections[0]) == playerInputVector * -1)
+                return true;
+        }
+
+        return false;
     }
 
     void MoveToNode(Vector2 d)
@@ -271,16 +526,16 @@ public class Player : MonoBehaviour
             if (playerNumber == PlayerNumber.PlayerOne)
             {
                 if (Keyboard.current.leftArrowKey.wasPressedThisFrame)
-                    ChangePosition(Vector2.left);
+                    ChangePosition( invertedControls ? Vector2.right : Vector2.left );
                 
                 else if (Keyboard.current.rightArrowKey.wasPressedThisFrame)
-                    ChangePosition(Vector2.right);
+                    ChangePosition( invertedControls ? Vector2.left : Vector2.right );
                 
                 else if (Keyboard.current.downArrowKey.wasPressedThisFrame)
-                    ChangePosition(Vector2.down);
+                    ChangePosition( invertedControls ? Vector2.up : Vector2.down );
                 
                 else if (Keyboard.current.upArrowKey.wasPressedThisFrame)
-                    ChangePosition(Vector2.up);
+                    ChangePosition( invertedControls ? Vector2.down : Vector2.up );
             }
 
             else
@@ -304,16 +559,16 @@ public class Player : MonoBehaviour
             if (playerNumber == PlayerNumber.PlayerOne)
             {
                 if (Gamepad.all[manager.controllerOneIndexToUse].dpad.left.wasPressedThisFrame)
-                    ChangePosition(Vector2.left);
+                    ChangePosition( invertedControls ? Vector2.right : Vector2.left );
                 
                 else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.right.wasPressedThisFrame)
-                    ChangePosition(Vector2.right);
+                    ChangePosition( invertedControls ? Vector2.left : Vector2.right );
                 
                 else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.down.wasPressedThisFrame)
-                    ChangePosition(Vector2.down);
+                    ChangePosition( invertedControls ? Vector2.up : Vector2.down );
                 
                 else if (Gamepad.all[manager.controllerOneIndexToUse].dpad.up.wasPressedThisFrame)
-                    ChangePosition(Vector2.up);
+                    ChangePosition( invertedControls ? Vector2.down : Vector2.up );
             }
 
             else
@@ -470,6 +725,14 @@ public class Player : MonoBehaviour
         return null;
     }
 
+    Vector2 GetRandomTile()
+    {
+        int x = Random.Range(0, GameManager.boardWidth);
+        int y = Random.Range(0, GameManager.boardHeight);
+
+        return new Vector2(x, y);
+    }
+
     public void Restart()
     {
         canMove = true;
@@ -491,31 +754,6 @@ public class Player : MonoBehaviour
         ChangePosition(playerInputVector);
     }
 
-    void MovementLight(float incrementFactor)
-    {
-        if (!overrideAnimSpeed)
-        {
-            if (incrementFactor > 0f)
-            {
-                if (manager.currentAnimSpeed < 1f)
-                {
-                    manager.currentAnimSpeed += Time.deltaTime;
-                }
-            }
-            
-            else
-            {
-                if (manager.currentAnimSpeed > 0f)
-                {
-                    manager.currentAnimSpeed -= Time.deltaTime;
-
-                    if (manager.currentAnimSpeed < 0f)
-                        manager.currentAnimSpeed = 0f;
-                }
-            }
-        }
-    }
-
     float LengthFromNode(Vector2 targetPosition)
     {
         Vector2 vec = targetPosition - (Vector2)previousNode.transform.position;
@@ -528,12 +766,5 @@ public class Player : MonoBehaviour
         float nodeToSelf = LengthFromNode(transform.localPosition);
 
         return nodeToSelf > nodeToTarget;
-    }
-
-    void HandlePS4LightBar()
-    {
-        Vector2 _playerInputVector = playerInputVector;
-        float incrementFactor = ((Mathf.Abs(_playerInputVector.x) / 2) + (Mathf.Abs(_playerInputVector.y) / 2));
-        MovementLight(incrementFactor);
     }
 }

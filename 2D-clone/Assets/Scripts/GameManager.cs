@@ -44,6 +44,9 @@ public class GameManager : MonoBehaviour
     public Sprite[] allFruitsImages;
     public Fruit[] allFruits;
     public Animator fruitRoulette;
+    [Header ("Game - Ghost V PacMan")]
+    public int gameRounds;
+    public BattleModeMusic[] battleMusic;
     [Header ("Board")]
     public Node[] cornerNodes;
     public List<Node> allNodes;
@@ -70,6 +73,7 @@ public class GameManager : MonoBehaviour
     public float act1T, act2T, act3T;
     [Header ("Audio")]
     public AudioClip[] sirens;
+    public AudioClip gameOverMusic;
     public AudioClip superPelletMusic;
     public AudioClip consumedGhostMusic;
     public AudioClip pacManDeath;
@@ -77,7 +81,6 @@ public class GameManager : MonoBehaviour
     public AudioClip timeTrialIntroMusic;
     public AudioClip winMusic;
     public AudioClip extraTimeSFX;
-    public CustomGamemodeMusic gameModeCustomMusic;
     public AudioSource musicSource;
     public int consumedGhosts;
     public int ghostToConsume;
@@ -86,6 +89,7 @@ public class GameManager : MonoBehaviour
     public GameObject classicHUD;
     public GameObject P2PVPHUD;
     public GameObject timeTrialHUD;
+    public GameObject ghostVPlayerHUD;
     [Header ("UI")]
     public Animator[] fruits;
     public TMP_Text currentScore;
@@ -145,6 +149,8 @@ public class GameManager : MonoBehaviour
     float currentAteFruitTime;
     bool canTimeTrial;
     bool canFruitRoulette;
+    bool playedBattleMusic;
+    bool playedStartBattleMusic;
     bool playGameOverMusic;
     bool rollRoulette;
     bool _playedGO;
@@ -161,6 +167,7 @@ public class GameManager : MonoBehaviour
     float timeSpent;
     Enemy[] allGhosts = new Enemy[4];
     Animator animator;
+    Animator ghostPlayerAnim;
     Transform lastPellet;
 
     void Start()
@@ -192,7 +199,9 @@ public class GameManager : MonoBehaviour
             pelletDivision[i] = (totalPellets / 6f) * (i + 1);
         
         LoadMaze();
-        LoadDifficulty();
+
+        if (currentGamemode != GameMode.GhostVPlayer)
+            LoadDifficulty();
 
         if (currentGamemode == GameMode.PVP2P)
         {
@@ -223,19 +232,19 @@ public class GameManager : MonoBehaviour
             timeTrialHUD.SetActive(true);
         }
         
-        else if (currentGamemode == GameMode.Classic || currentGamemode == GameMode.TimeTrial)
+        else if (currentGamemode == GameMode.GhostVPlayer)
         {
-            pacMan2 = null;
-
-            if (currentGamemode == GameMode.Classic)
-                classicHUD.SetActive(true);
-            
-            else if (currentGamemode == GameMode.TimeTrial)
-                timeTrialHUD.SetActive(true);
+            SetUpGhostVPlayer();
+            ghostVPlayerHUD.SetActive(true);
         }
         
         if (currentGamemode == GameMode.Classic || currentGamemode == GameMode.PVP2P)
             StartCoroutine(StartCutscene(introMusic.length));
+        
+        else if (currentGamemode == GameMode.GhostVPlayer)
+        {
+            StartCoroutine(StartCutsceneGVP(4.299f));
+        }
 
         else if (currentGamemode == GameMode.TimeTrial)
             StartCoroutine(StartCutsceneTimeTrial(timeTrialIntroMusic.length));
@@ -258,6 +267,9 @@ public class GameManager : MonoBehaviour
         
         else if (currentGamemode == GameMode.TimeTrial)
             CheckForTimeTrialSpecifics();
+        
+        else if (currentGamemode == GameMode.GhostVPlayer)
+            CheckForGhostVPlayerSpecifics();
 
         if ((currentGamemode != GameMode.Classic || currentGamemode != GameMode.TimeTrial) && on2PLoose)
         {
@@ -473,6 +485,20 @@ public class GameManager : MonoBehaviour
         fruitRollSelected = allFruits[UnityEngine.Random.Range(0, allFruits.Length)];
     }
 
+    void SetUpGhostVPlayer()
+    {
+        pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().color = playerOneColor;
+        pacMan2.transform.GetChild(0).gameObject.SetActive(false);
+        pacMan.transform.GetChild(1).GetComponent<SpriteRenderer>().color = playerOneColor;
+        pacMan2.transform.GetChild(1).gameObject.SetActive(false);
+    
+        pacMan2.transform.GetChild(2).gameObject.SetActive(true);
+        pacMan2.transform.GetChild(2).GetChild(0).GetComponent<SpriteRenderer>().color = playerTwoColor;
+
+        foreach (Enemy g in allGhosts)
+            g.gameObject.SetActive(false);
+    }
+
     public void AddTimeTrialTime(string context)
     {
         GameObject _tmpP = null;
@@ -595,7 +621,7 @@ public class GameManager : MonoBehaviour
     }
 
     void CheckForTimeTrialSpecifics()
-    {   
+    {
         if (ateFruit)
         {
             if (currentAteFruitTime >= 3f)
@@ -613,6 +639,13 @@ public class GameManager : MonoBehaviour
         {
             if (currentTimeTrialTime > 0 && currentTimeTrialTime <= startingTime)
                 currentTimeTrialTime -= Time.deltaTime * initialTimerMultiplier;
+            
+            if (currentTimeTrialTime <= 0)
+            {
+                currentTimeTrialTime = 0f;
+                canTimeTrial = false;
+                StartDeath();
+            }
         }
 
         if (canFruitRoulette)
@@ -639,6 +672,55 @@ public class GameManager : MonoBehaviour
                         TimeSpan.FromSeconds(timeSpent).Milliseconds.ToString();
     }
 
+    void CheckForGhostVPlayerSpecifics()
+    {
+        AudioClip _start = null, _music = null;
+        Tuple<AudioClip, AudioClip> _battleMusic = GetRandomTrack("Starter");
+        _start = _battleMusic.Item1;
+        _music = _battleMusic.Item2;
+
+        if (_music != null)
+        {
+            if (_start != null)
+            {
+                if (!playedStartBattleMusic)
+                {
+                    musicSource.PlayOneShot(_start);
+                    playedStartBattleMusic = true;
+                }
+            }
+
+            if (!playedBattleMusic)
+            {
+                StartCoroutine(PlayBattleMusic(0f, _music));
+                playedBattleMusic = true;
+            }
+        }
+    }
+
+    IEnumerator PlayBattleMusic(float delay, AudioClip track)
+    {
+        yield return new WaitForSeconds(delay);
+        musicSource.loop = true;
+        musicSource.clip = track;
+        musicSource.Play();
+    }
+
+    Tuple <AudioClip, AudioClip> GetRandomTrack(string context)
+    {
+        for (int i = 0; i < battleMusic.Length; i++)
+        {
+            if (battleMusic[i].musicContext.ToString() == context)
+            {
+                int randomSong = UnityEngine.Random.Range(0, battleMusic[i].tracks.Length);
+                Debug.Log(battleMusic[i].tracks[randomSong].music.name);
+                return Tuple.Create( (battleMusic[i].tracks[randomSong].start == null ? battleMusic[i].tracks[randomSong].start : null), battleMusic[i].tracks[randomSong].music);
+            }
+        }
+
+        return Tuple.Create<AudioClip, AudioClip>(null, null);
+    }
+
     IEnumerator FruitRoulette()
     {
         canFruitRoulette = false;
@@ -649,7 +731,9 @@ public class GameManager : MonoBehaviour
 
         yield return new WaitForSeconds(fruitRouletteRoll.length);
 
-        fruitRoulette.GetComponent<AudioSource>().PlayOneShot(fruitRouletteSelection);
+        if (fruitRoulette.gameObject.activeSelf)
+            fruitRoulette.GetComponent<AudioSource>().PlayOneShot(fruitRouletteSelection);
+
         rollRoulette = false;
         StopCoroutine(RollFruits());
         fruitRoulette.transform.GetChild(0).GetComponent<Image>().sprite = fruitRollSelected.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite;
@@ -718,17 +802,13 @@ public class GameManager : MonoBehaviour
 
     void GameOverMusic()
     {   
-        musicSource.clip = introMusic;
-        musicSource.loop = false;
+        musicSource.clip = gameOverMusic;
 
         if (!_playedGO)
         {
             musicSource.Play();
             _playedGO = true;
         }
-
-        if (musicSource.pitch > 0)
-            musicSource.pitch -= Time.deltaTime * 0.12f;
     }
 
     void LoadMaze()
@@ -819,7 +899,7 @@ public class GameManager : MonoBehaviour
 
                 tempGhost.timeToReleaseGhost = difficulty.ghostConfigs[i].timeToRelease;
 
-                if (currentGamemode == GameMode.TimeTrial)
+                if (currentGamemode != GameMode.TimeTrial)
                 {
                     tempGhost.moveSpeed = difficulty.ghostConfigs[i].ghostMoveSpeed;
                     tempGhost.consumedMoveSpeed = difficulty.ghostConfigs[i].ghostConsumedSpeed;
@@ -836,6 +916,32 @@ public class GameManager : MonoBehaviour
                 tempGhost.chaseModeTimes = difficulty.chaseModeTimes;
             }
         }
+    }
+
+    IEnumerator StartCutsceneGVP(float delay)
+    {
+        pacMan.canMove = false;
+
+        if (pacMan2 != null)
+            pacMan2.canMove = false;
+
+        pacMan.GetComponent<Animator>().SetBool("moving", false);
+
+        if (pacMan2 != null)
+            pacMan2.GetComponent<Animator>().SetBool("moving", false);
+
+        yield return new WaitForSeconds(delay);
+
+        countTime = true;
+        pacMan.canMove = true;
+
+        if (pacMan2 != null)
+            pacMan2.canMove = true;
+
+        if (currentGamemode == GameMode.TimeTrial)
+            canTimeTrial = true;
+
+        musicSource.loop = true;
     }
 
     IEnumerator StartCutscene(float delay)
@@ -862,6 +968,9 @@ public class GameManager : MonoBehaviour
 
         blinky.canMove = pinky.canMove = inky.canMove = clyde.canMove = true;
 
+        if (pacMan2 != null)
+            musicMode = MusicMode.Custom;
+
         if (musicMode != MusicMode.Custom)
         {
             musicSource.clip = sirens[0];
@@ -869,10 +978,7 @@ public class GameManager : MonoBehaviour
         }
 
         else
-        {
-            musicSource.clip = customMusic;
-            musicSource.Play();
-        }
+            PlayRandomBattleMusic("Starter");
 
         if (currentGamemode == GameMode.TimeTrial)
             canTimeTrial = true;
@@ -954,6 +1060,32 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    void PlayRandomBattleMusic(string context)
+    {
+        AudioClip _start = null, _music = null;
+        Tuple<AudioClip, AudioClip> _battleMusic = GetRandomTrack(context);
+        _start = _battleMusic.Item1;
+        _music = _battleMusic.Item2;
+
+        if (_music != null)
+        {
+            if (_start != null)
+            {
+                if (!playedStartBattleMusic)
+                {
+                    musicSource.PlayOneShot(_start);
+                    playedStartBattleMusic = true;
+                }
+            }
+
+            if (!playedBattleMusic)
+            {
+                StartCoroutine(PlayBattleMusic(0f, _music));
+                playedBattleMusic = true;
+            }
+        }
+    }
+
     public void CheckForSirenChange()
     {   
         if (musicMode != MusicMode.Custom)
@@ -1018,17 +1150,29 @@ public class GameManager : MonoBehaviour
         lastGhostScore = 200;
         p2LastGhostScore = 200;
 
-        if (musicMode != MusicMode.Custom) musicSource.clip = sirens[currentSirenIndex];
-        else musicSource.clip = customMusic;
+        if (musicMode != MusicMode.Custom)
+        {
+            musicSource.clip = sirens[currentSirenIndex];
+            musicSource.Play();
+        }
 
-        musicSource.Play();
+        else
+        {
+            playedStartBattleMusic = false;
+            playedBattleMusic = false;
+
+            if (currentActIndex == 1)
+                PlayRandomBattleMusic("Middle");
+            
+            else if (currentActIndex == 2)
+                PlayRandomBattleMusic("Final");
+        }
 
         startDeath = false;
     }
 
     public void TriggerSuperPellet()
     {
-        player.overrideAnimSpeed = true;
         currentAnimSpeed = 1f;
 
         if (blinky.ghostMode != Enemy.GhostMode.Frightened && blinky.ghostMode != Enemy.GhostMode.Consumed)
@@ -1255,8 +1399,9 @@ public class GameManager : MonoBehaviour
         pacMan.canMove = pacMan2.canMove = blinky.canMove = inky.canMove = pinky.canMove = clyde.canMove = false;
         pacMan.GetComponent<Animator>().SetBool("moving", false);
         pacMan2.GetComponent<Animator>().SetBool("moving", false);
-        musicSource.Stop();
-        musicSource.PlayOneShot(winMusic);
+        musicSource.clip = gameOverMusic;
+        musicSource.loop = true;
+        musicSource.Play();
         fruitIndex = 0;
         ateAllFruits = false;
         lastGhostScore = 200;
@@ -1575,8 +1720,6 @@ public class GameManager : MonoBehaviour
             _tmpTotalScore += multipliedScores[i];
         }
 
-        Debug.Log(_tmpTotalScore);
-
         _totalScoreText.text = _tmpTotalScore.ToString("D7");
         float _totTime = timeAct1 + timeAct2 + timeAct3;
         _totalTime.text = TimeSpan.FromSeconds(_totTime).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(_totTime).Seconds.ToString("D2") + ":" +
@@ -1589,7 +1732,9 @@ public class GameManager : MonoBehaviour
         pacMan.canMove = blinky.canMove = inky.canMove = pinky.canMove = clyde.canMove = false;
         pacMan.GetComponent<Animator>().SetBool("moving", false);
         musicSource.Stop();
-        musicSource.PlayOneShot(winMusic);
+        musicSource.clip = gameOverMusic;
+        musicSource.loop = true;
+        musicSource.Play();
         fruitIndex = 0;
         ateAllFruits = false;
         lastGhostScore = 200;
@@ -1677,7 +1822,11 @@ public class GameManager : MonoBehaviour
             pacMan2.GetComponent<Animator>().SetBool("moving", false);
         }
 
-        musicSource.Stop();
+        if (currentGamemode != GameMode.PVP2P)
+            musicSource.Stop();
+        
+        else
+            musicSource.Pause();
 
         if (inSuperPellet)
         {
@@ -1709,7 +1858,6 @@ public class GameManager : MonoBehaviour
 
         else
         {
-            musicSource.clip = sirens[currentSirenIndex];
             musicSource.Play();
 
             if (pacManTo == pacMan)
@@ -1771,6 +1919,7 @@ public class GameManager : MonoBehaviour
         countTime = false;
         canTimeTrial = false;
         ateFruit = false;
+        fruitRoulette.gameObject.SetActive(false);
         StopCoroutine(FruitRoulette());
         canFruitRoulette = false;
         yield return new WaitForSeconds(delay);
@@ -1791,7 +1940,7 @@ public class GameManager : MonoBehaviour
 
         yield return new WaitForSeconds(1.9f);
 
-        musicSource.clip = customMusic;
+        musicSource.clip = gameOverMusic;
         musicSource.Play();
         gameOverPanel.SetTrigger("ui_gameover");
         
@@ -1934,7 +2083,6 @@ public class GameManager : MonoBehaviour
             {
                 animator.SetBool("superpelletlightend", false);
                 inSuperPellet = false;
-                player.overrideAnimSpeed = false;
                 superPelletTimer = 0f;
                 ghostToConsume = 4;
                 lastGhostScore = 200;
@@ -2029,6 +2177,7 @@ public class GameManager : MonoBehaviour
     public void ReloadGame()
     {
         gameOverPanel.SetTrigger("ui_option");
+        winPanel.SetTrigger("option");
         StartCoroutine(LoadScene(SceneManager.GetActiveScene().buildIndex));
     }
 
@@ -2065,7 +2214,15 @@ public class ClassicHUDFruit
 }
 
 [System.Serializable]
-public class CustomGamemodeMusic
+public class BattleModeMusic
+{
+    public enum MusicContext { Starter, Middle, Final }
+    public MusicContext musicContext;
+    public BattleModeTrack[] tracks;
+}
+
+[System.Serializable]
+public class BattleModeTrack
 {
     public AudioClip start;
     public AudioClip music;
