@@ -286,8 +286,13 @@ public class Enemy : MonoBehaviour
     {
         canMove = true;
         transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = true;
-        ghostMode = GhostMode.Scatter;
-        modeChangeIteration = 0;
+        
+        if (modeChangeIteration < maxModeChangeIteration)
+            ghostMode = GhostMode.Scatter;
+        
+        else
+            ghostMode = GhostMode.Chase;
+    
         modeChangeTimer = 0f;
         finalIteration = false;
         transform.position = startingNode.transform.position;

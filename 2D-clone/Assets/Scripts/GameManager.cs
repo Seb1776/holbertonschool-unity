@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
@@ -41,6 +42,7 @@ public class GameManager : MonoBehaviour
     public float maxTimeIncrements;
     public AudioClip fruitRouletteRoll;
     public AudioClip fruitRouletteSelection;
+    public AudioClip timeTrialTrack;
     public Sprite[] allFruitsImages;
     public Fruit[] allFruits;
     public Animator fruitRoulette;
@@ -50,6 +52,7 @@ public class GameManager : MonoBehaviour
     [Header ("Board")]
     public Node[] cornerNodes;
     public List<Node> allNodes;
+    public Color pelletsColor;
     public static int boardWidth = 36, boardHeight = 36;
     public GameObject [,] boardObjects = new GameObject[boardWidth, boardHeight];
     public int score, eatenPellets, totalPellets, lastGhostScore = 200;
@@ -92,6 +95,7 @@ public class GameManager : MonoBehaviour
     public GameObject ghostVPlayerHUD;
     [Header ("UI")]
     public Animator[] fruits;
+    public GameObject pausePanel;
     public TMP_Text currentScore;
     public TMP_Text hiScore;
     public TMP_Text currentTime;
@@ -152,6 +156,8 @@ public class GameManager : MonoBehaviour
     bool playedBattleMusic;
     bool playedStartBattleMusic;
     bool playGameOverMusic;
+    bool canPause;
+    bool paused;
     bool rollRoulette;
     bool _playedGO;
     bool on2PLoose;
@@ -165,10 +171,21 @@ public class GameManager : MonoBehaviour
     int currentSirenIndex;
     float superPelletTimer;
     float timeSpent;
+    float timeTrialTimeSpent;
     Enemy[] allGhosts = new Enemy[4];
     Animator animator;
     Animator ghostPlayerAnim;
     Transform lastPellet;
+    GameSetter gameSetter;
+
+    void Awake()
+    {
+        gameSetter = GameObject.FindGameObjectWithTag("GameSetter").GetComponent<GameSetter>();
+        difficulty = gameSetter.selectedDifficulty;
+        currentGamemode = gameSetter.selectedMode;
+        playerOneColor = gameSetter.p1Color;
+        playerOneColor = gameSetter.p2Color;
+    }
 
     void Start()
     {
@@ -283,8 +300,8 @@ public class GameManager : MonoBehaviour
         if (playGameOverMusic)
             GameOverMusic();
 
-        if (Keyboard.current.kKey.wasPressedThisFrame)
-            InstaWin();
+        if (canPause && (Keyboard.current.tabKey.wasPressedThisFrame || Keyboard.current.escapeKey.wasPressedThisFrame))
+            PauseGame();
     }
 
     void InstaWin()
@@ -309,6 +326,27 @@ public class GameManager : MonoBehaviour
             StartCoroutine(WinWin());
         else
             StartCoroutine(ProcessWinActAnimation());
+    }
+
+    public void PauseGame()
+    {
+        paused = !paused;
+
+        if (paused)
+        {
+            musicSource.Pause();
+            musicSource.volume = 0f;
+            pausePanel.SetActive(true);
+            Time.timeScale = 0f;   
+        }
+
+        else
+        {
+            musicSource.Play();
+            musicSource.volume = 1f;
+            pausePanel.SetActive(false);
+            Time.timeScale = 1f;
+        }
     }
 
     void AssignPlayersControls()
@@ -668,8 +706,8 @@ public class GameManager : MonoBehaviour
                     
         timeTrialTotalScore.text = score.ToString("D7");
 
-        timeTrialTotalTime.text = TimeSpan.FromSeconds(timeSpent).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(timeSpent).Seconds.ToString("D2") + ":" +
-                        TimeSpan.FromSeconds(timeSpent).Milliseconds.ToString();
+        timeTrialTotalTime.text = TimeSpan.FromSeconds(timeTrialTimeSpent).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(timeTrialTimeSpent).Seconds.ToString("D2") + ":" +
+                        TimeSpan.FromSeconds(timeTrialTimeSpent).Milliseconds.ToString();
     }
 
     void CheckForGhostVPlayerSpecifics()
@@ -871,6 +909,12 @@ public class GameManager : MonoBehaviour
                 musicMode = difficulty.difficultyMusicMode;
             }
 
+            else if (currentGamemode == GameMode.TimeTrial)
+            {
+                customMusic = timeTrialTrack;
+                musicMode = MusicMode.Custom;
+            }
+
             foreach (Fruit f in roundFruits)
                 f.lifeTime = difficulty.fruitLifeTime;
 
@@ -942,6 +986,7 @@ public class GameManager : MonoBehaviour
             canTimeTrial = true;
 
         musicSource.loop = true;
+        canPause = true;
     }
 
     IEnumerator StartCutscene(float delay)
@@ -977,13 +1022,20 @@ public class GameManager : MonoBehaviour
             musicSource.Play();
         }
 
-        else
+        else if (musicMode == MusicMode.Custom && currentGamemode == GameMode.PVP2P)
             PlayRandomBattleMusic("Starter");
+        
+        else if (musicMode == MusicMode.Custom && currentGamemode == GameMode.Classic)
+        {
+            musicSource.clip = customMusic;
+            musicSource.Play();
+        }
 
         if (currentGamemode == GameMode.TimeTrial)
             canTimeTrial = true;
 
         musicSource.loop = true;
+        canPause = true;
     }
 
     IEnumerator StartCutsceneTimeTrial(float delay)
@@ -1010,11 +1062,16 @@ public class GameManager : MonoBehaviour
         }
 
         musicSource.loop = true;
+        canPause = true;
     }
 
     void HandleTimer()
-    {
-        timeSpent += Time.deltaTime;
+    {      
+        if (currentGamemode != GameMode.TimeTrial)
+            timeSpent += Time.deltaTime;
+        
+        else if (currentGamemode == GameMode.TimeTrial)
+            timeTrialTimeSpent += Time.deltaTime;
     }
 
     public void CheckToAppearFruit()
@@ -1040,7 +1097,7 @@ public class GameManager : MonoBehaviour
         for (int i = 0; i < cornerNodes.Length; i++)
         {
             if (cornerNodes[i].pelletType == Node.PelletType.CornerPellet && cornerNodes[i].gameObject.activeSelf)
-                cornerNodes[i].GetNeighbours();
+                cornerNodes[i].GetNeighbours(this);
         }
 
         GetPelletsCoords();
@@ -1054,6 +1111,8 @@ public class GameManager : MonoBehaviour
         {
             if (o.GetComponent<Node>() != null)
             {
+                o.GetComponent<SpriteRenderer>().color = pelletsColor;
+
                 Vector2 pos = o.transform.position;
                 boardObjects[Mathf.Abs((int)pos.x), Mathf.Abs((int)pos.y)] = o.gameObject;
             }
@@ -1168,6 +1227,7 @@ public class GameManager : MonoBehaviour
                 PlayRandomBattleMusic("Final");
         }
 
+        canPause = true;
         startDeath = false;
     }
 
@@ -1757,13 +1817,129 @@ public class GameManager : MonoBehaviour
         clyde.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled =
         pacMan.transform.GetChild(0).GetComponent<SpriteRenderer>().enabled = 
         pacMan.transform.GetChild(1).GetComponent<SpriteRenderer>().enabled = false;
+        SaveScores();
 
         yield return null;
+    }
+
+    void SaveScores()
+    {
+        if (currentGamemode == GameMode.Classic || currentGamemode == GameMode.TimeTrial)
+        {
+            bool foundFile = (File.Exists(Application.persistentDataPath + "/scores.json"));
+
+            if (foundFile)
+            {
+                string loadedJson = File.ReadAllText(Application.persistentDataPath + "/scores.json");
+                ScoreSaver _ss = JsonUtility.FromJson<ScoreSaver>(loadedJson);
+                int existingItemIndex = -1;
+
+                bool existingItem = false; 
+
+                for (int i = 0; i < _ss.scoreDatas.Count; i++)
+                {
+                    if (_ss.scoreDatas[i].levelName == gameSetter.selectedMaze)
+                    {
+                        existingItem = true;
+                        existingItemIndex = i;
+                        break;
+                    }
+                }
+
+                if (existingItem)
+                {   
+                    if (currentGamemode == GameMode.Classic)
+                    {
+                        if (score > _ss.scoreDatas[existingItemIndex].bestClassicScore)
+                            _ss.scoreDatas[existingItemIndex].bestClassicScore = score;
+                        
+                        if (act1T > _ss.scoreDatas[existingItemIndex].bestAct1Time)
+                            _ss.scoreDatas[existingItemIndex].bestAct1Time = act1T;
+                        
+                        if (act2T > _ss.scoreDatas[existingItemIndex].bestAct2Time)
+                            _ss.scoreDatas[existingItemIndex].bestAct2Time = act2T;
+                        
+                        if (act3T > _ss.scoreDatas[existingItemIndex].bestAct3Time)
+                            _ss.scoreDatas[existingItemIndex].bestAct3Time = act3T;
+                        
+                        if ((act1T + act2T + act3T) > _ss.scoreDatas[existingItemIndex].bestGlobalTime)
+                            _ss.scoreDatas[existingItemIndex].bestGlobalTime = act1T + act2T + act3T;
+                    }
+
+                    else if (currentGamemode == GameMode.TimeTrial)
+                    {
+                        if (timeTrialTimeSpent > _ss.scoreDatas[existingItemIndex].bestSurvivedTime)
+                            _ss.scoreDatas[existingItemIndex].bestSurvivedTime = timeTrialTimeSpent;
+                    }
+
+                    string json = JsonUtility.ToJson(_ss, true);
+                    File.WriteAllText(Application.persistentDataPath + "/scores.json", json);
+                }
+
+                else
+                {
+                    ScoreSaver ss = new ScoreSaver();
+                    ScoreData sd = new ScoreData();
+
+                    sd.levelName = gameSetter.selectedMaze;
+
+                    if (currentGamemode == GameMode.Classic)
+                    {
+                        sd.bestAct1Time = act1T;
+                        sd.bestAct2Time = act2T;
+                        sd.bestAct3Time = act3T;
+                        sd.bestClassicScore = score;
+                        sd.bestGlobalTime = act1T + act2T + act3T;
+                    }
+
+                    else if (currentGamemode == GameMode.TimeTrial)
+                    {
+                        sd.bestSurvivedTime = timeSpent;
+                        sd.bestTimeTrialScore = score;
+                    }
+
+                    ss.scoreDatas.Add(sd);
+
+                    string json = JsonUtility.ToJson(ss, true);
+                    File.WriteAllText(Application.persistentDataPath + "/scores.json", json);
+                }
+            }
+            
+            else
+            {
+                ScoreSaver ss = new ScoreSaver();
+                ScoreData sd = new ScoreData();
+
+                sd.levelName = gameSetter.selectedMaze;
+
+                if (currentGamemode == GameMode.Classic)
+                {
+                    sd.bestAct1Time = act1T;
+                    sd.bestAct2Time = act2T;
+                    sd.bestAct3Time = act3T;
+                    sd.bestClassicScore = score;
+                    sd.bestGlobalTime = act1T + act2T + act3T;
+                }
+
+                else if (currentGamemode == GameMode.TimeTrial)
+                {
+                    sd.bestSurvivedTime = timeSpent;
+                    sd.bestTimeTrialScore = score;
+                }
+
+                ss.scoreDatas.Add(sd);
+
+                string json = JsonUtility.ToJson(ss, true);
+                File.WriteAllText(Application.persistentDataPath + "/scores.json", json);
+            }
+        }
     }
 
     public void StartDeath(Player pacManTo = null)
     {
         if (!startDeath) startDeath = true;
+
+        canPause = false;
 
         if (pacManTo == null)
         {
@@ -1943,6 +2119,9 @@ public class GameManager : MonoBehaviour
         musicSource.clip = gameOverMusic;
         musicSource.Play();
         gameOverPanel.SetTrigger("ui_gameover");
+        SaveScores();
+        timeTrialTotalTimeGO.text = TimeSpan.FromSeconds(timeTrialTimeSpent).Minutes.ToString("D2") + ":" + TimeSpan.FromSeconds(timeTrialTimeSpent).Seconds.ToString("D2") + ":" +
+                        TimeSpan.FromSeconds(timeTrialTimeSpent).Milliseconds.ToString();
         
         if (timeTrialEatenFruits <= fruitTimeTrialGO.Length)
         {
@@ -2054,6 +2233,7 @@ public class GameManager : MonoBehaviour
         }
 
         gameOverPanel.SetTrigger("ui_gameover");
+        classicGameOver.SetActive(true);
     }
 
     void HandleSuperPellet()
@@ -2179,6 +2359,17 @@ public class GameManager : MonoBehaviour
         gameOverPanel.SetTrigger("ui_option");
         winPanel.SetTrigger("option");
         StartCoroutine(LoadScene(SceneManager.GetActiveScene().buildIndex));
+    }
+
+    public void GoToMenu()
+    {
+        gameOverPanel.SetTrigger("ui_option");
+        winPanel.SetTrigger("option");
+
+        if (gameSetter != null)
+            Destroy(gameSetter.gameObject);
+
+        StartCoroutine(LoadScene(0));
     }
 
     public float GetValueFromPercentage(float percentageToTake, float value)

@@ -34,4 +34,5 @@ MonoBehaviour:
     - {fileID: 1707705285083436530, guid: 6ba0ece54e2ec804c9d9c31b9eaa2114, type: 3}
   tilemap: {fileID: 0}
   pelletsParent: {fileID: 0}
+  levelPreview: {fileID: 21300000, guid: a64f0370a9a45eb4aa7910aec8df6155, type: 3}
   pelletsToAppearFruit: 35

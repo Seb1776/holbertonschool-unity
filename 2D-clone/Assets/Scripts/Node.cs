@@ -40,8 +40,10 @@ public class Node : MonoBehaviour
         GetComponent<SpriteRenderer>().enabled = invisiblePellet ? false : true;
     }
 
-    public void GetNeighbours()
-    {   
+    public void GetNeighbours(GameManager _manager)
+    {
+        manager = _manager;
+
         if (!manualNeighbours)
         {
             Vector2[] directs = new Vector2[4];
@@ -56,8 +58,9 @@ public class Node : MonoBehaviour
                 RaycastHit2D hit = Physics2D.Raycast(transform.position, directs[i], raycastDetectLength, whatIsNode);
 
                 if (hit.collider != null && hit.collider.GetComponent<Node>() != null && hit.collider.GetComponent<Node>().detectableForOtherPellets)
-                {
-                    neighbours.Add(hit.collider.GetComponent<Node>());
+                {   
+                    if (!isPortal || (isPortal && !hit.collider.GetComponent<Node>().isPortal))
+                        neighbours.Add(hit.collider.GetComponent<Node>());
                 }
             }
 
