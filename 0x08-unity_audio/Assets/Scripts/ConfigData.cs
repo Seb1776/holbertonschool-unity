@@ -6,9 +6,12 @@ using UnityEngine;
 public class ConfigData
 {
     public bool invertY;
+    public float sfxVol, musVol;
 
     public ConfigData (OptionsMenu pc)
     {
         invertY = pc.invertConfigY;
+        sfxVol = pc.sfxVol;
+        musVol = pc.musVol;
     }
 }

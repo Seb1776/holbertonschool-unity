@@ -18,6 +18,11 @@ public class PlayerController : MonoBehaviour
     public bool canRotate;
     public bool useController;
     public bool invertY;
+    public float timeBtwFootSteps;
+    public AudioClip footsStepClipRock, footsStepsClipGrass,
+        landRock, landGrass;
+    public float platformDetectLength;
+    public LayerMask whatIsPlatform;
     [SerializeField]
     bool onGround;
     [Header ("Physics")]
@@ -37,10 +42,14 @@ public class PlayerController : MonoBehaviour
     float currentSpeed;
     float horizontalMv;
     float verticalMv;
+    float nextStep;
+    float timeNotOnGround;
     bool fall;
     Rigidbody rb;
     Vector3 moveDirection;
+    AudioClip currentSteps, currentLand;
     AudioSource sfxSource;
+    [SerializeField] PauseMenu pause;
 
     void Start()
     {
@@ -58,6 +67,7 @@ public class PlayerController : MonoBehaviour
         GetInputs();
         ControlDrag();
         GetPlayerDirection();
+        DetectDifferentPlatform();
     }
 
     void LoadConfig()
@@ -74,6 +84,22 @@ public class PlayerController : MonoBehaviour
         GetMovement();
     }
 
+    void DetectDifferentPlatform()
+    {
+        RaycastHit hit;
+
+        if (Physics.Raycast(transform.position, transform.TransformDirection(Vector3.down), out hit, platformDetectLength, whatIsPlatform))
+            if (hit.collider != null)
+                if (hit.collider.tag.Contains("Plat"))
+                    CurrentSteps(hit.transform.tag);
+    }
+
+    void OnDrawGizmos()
+    {
+        Gizmos.color = Color.blue;
+        Gizmos.DrawRay(transform.position, transform.TransformDirection(Vector3.down) * platformDetectLength);
+    }
+
     void GetPlayerDirection()
     {
         moveDirection = transform.forward * verticalMv + transform.right * horizontalMv;
@@ -84,10 +110,27 @@ public class PlayerController : MonoBehaviour
         if (canMove)
         {
             if (onGround)
+            {
                 rb.AddForce(moveDirection.normalized * currentSpeed * moveSpeedMultiplier, ForceMode.Acceleration);
+
+                if (moveDirection.magnitude > 0.1f && (Time.time > nextStep && timeNotOnGround == 0f))
+                {
+                    nextStep = timeBtwFootSteps + Time.time;
+                    sfxSource.PlayOneShot(currentSteps);
+                }
+
+                else if (timeNotOnGround > 0f)
+                {
+                    sfxSource.PlayOneShot(currentLand);
+                    timeNotOnGround = 0f;
+                }
+            }
                 
             else
+            {
                 rb.AddForce(moveDirection.normalized * currentSpeed * moveSpeedMultiplier * airMultiplier, ForceMode.Acceleration);
+                timeNotOnGround += Time.deltaTime;
+            }
         }
     }
 
@@ -101,6 +144,21 @@ public class PlayerController : MonoBehaviour
             GetJump();
 
         onGround = Physics.Raycast(transform.position, Vector3.down, playerHeight / 2f + .1f, isGround);
+    }
+
+    public void CurrentSteps(string step)
+    {
+        if (step == "GrassPlat")
+        {
+            currentSteps = footsStepsClipGrass;
+            currentLand = landGrass;
+        }
+        
+        else
+        {
+            currentSteps = footsStepClipRock;
+            currentLand = landRock;
+        }
     }
 
     void GetMovement()
@@ -152,6 +210,7 @@ public class PlayerController : MonoBehaviour
         {
             sfxSource.PlayOneShot(clearStageSFX);
             musicSystem.StopMusic();
+            pause.canPause = false;
             GetComponent<Timer>().TriggerWinGame();
         }
     }

@@ -1,16 +1,20 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System.IO;
 
 public class OptionsMenu : MonoBehaviour
 {
+    [SerializeField] private AudioMixerGroup musicMixer, sfxMixer;
+    [SerializeField] private Slider musSlid, sfxSlid;
     public Toggle invertToggle;
     public PlayerController player;
     public GameObject pauseCanvas;
     public bool invertConfigY;
+    public float sfxVol, musVol;
 
     void Start()
     {
@@ -28,6 +32,11 @@ public class OptionsMenu : MonoBehaviour
         {
             ConfigData cd = SaveSystem.LoadConfig();
             invertToggle.isOn = cd.invertY;
+            Debug.Log(cd.musVol + " " + cd.sfxVol);
+            musicMixer.audioMixer.SetFloat("vol", cd.musVol);
+            sfxMixer.audioMixer.SetFloat("volsfx", cd.sfxVol);
+            musSlid.value = sfxVol = cd.musVol;
+            sfxSlid.value = musVol = cd.sfxVol;
         }
     }
 
@@ -41,6 +50,18 @@ public class OptionsMenu : MonoBehaviour
         invertConfigY = invertToggle.isOn;
 
         SaveSystem.SaveConfig(this);
+    }
+    
+    public void SetMusicVolume (float value)
+    {
+        musicMixer.audioMixer.SetFloat("vol", value);
+        musVol = value;
+    }
+
+    public void SetSFXVolume (float value)
+    {
+        sfxMixer.audioMixer.SetFloat("volsfx", value);
+        sfxVol = value;
     }
 
     public void Back()

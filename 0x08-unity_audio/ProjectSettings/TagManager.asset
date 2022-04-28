@@ -7,6 +7,8 @@ TagManager:
   - ResetPos
   - MovingPlatform
   - WinFlag
+  - RockPlat
+  - GrassPlat
   layers:
   - Default
   - TransparentFX

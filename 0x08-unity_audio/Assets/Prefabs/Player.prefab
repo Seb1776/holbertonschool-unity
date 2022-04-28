@@ -57,6 +57,16 @@ MonoBehaviour:
   canMove: 1
   canRotate: 1
   useController: 0
+  invertY: 0
+  timeBtwFootSteps: 0.5
+  footsStepClipRock: {fileID: 8300000, guid: 76a0bde79417c18408760312606f88dd, type: 3}
+  footsStepsClipGrass: {fileID: 8300000, guid: dd545727c4433fe4fb1d8c0246c3b0fc, type: 3}
+  landRock: {fileID: 8300000, guid: b3d60c40038400c42b5926de5e1a61b1, type: 3}
+  landGrass: {fileID: 8300000, guid: bdceee330b78e5946a694e8ab0c82fe5, type: 3}
+  platformDetectLength: 5
+  whatIsPlatform:
+    serializedVersion: 2
+    m_Bits: 64
   onGround: 0
   mainCam: {fileID: 0}
   rbDrag: 6
@@ -122,6 +132,7 @@ MonoBehaviour:
   bestTime: 0
   canCount: 0
   winGame: 0
+  invertedY: 0
 --- !u!82 &461811120
 AudioSource:
   m_ObjectHideFlags: 0
@@ -131,7 +142,7 @@ AudioSource:
   m_GameObject: {fileID: 2238821111574309976}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: -5937468404932967706, guid: b72c7eebd117d2741b453f0152a30be0, type: 2}
   m_audioClip: {fileID: 0}
   m_PlayOnAwake: 1
   m_Volume: 1
